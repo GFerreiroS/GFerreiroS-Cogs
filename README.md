@@ -10,9 +10,3 @@ pip install pillow
 ```
 And you will need to install Google Chrome.
 Only tested in Linux
-
-# Contact
-Information on how to contact you about issues, bugs, and enhancements to your work
-
-# Credits
-Cite credit to anyone you collaborated with, or authors of code you used in your work that is not your own.
