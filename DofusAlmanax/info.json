@@ -1,0 +1,7 @@
+{
+    "author": ["Your Name"],
+    "description": "A cog for Dofus Almanax daily quests.",
+    "install_msg": "Thank you for installing Dofus Almanax!",
+    "short": "Dofus Almanax daily quests.",
+    "tags": ["dofus", "almanax", "daily quests"]
+}
