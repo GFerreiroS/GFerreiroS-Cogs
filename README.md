@@ -1,8 +1,15 @@
-# Repository Name
-Description of your repository
+# Dofus-cogs
+This is a repository for my own Discord Bot
 
 # Installation
-Provide installation instructions and possible 3rd party requirements.
+### DofusAlmanax
+You will need to install this dependencies:
+```
+pip install selenium
+pip install pillow
+```
+And you will need to install Google Chrome.
+Only tested in Linux
 
 # Contact
 Information on how to contact you about issues, bugs, and enhancements to your work
