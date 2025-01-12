@@ -99,6 +99,7 @@ class DofusAlmanax(commands.Cog):
             else:
                 print("An error occurred while generating the image.")
 
+    @commands.guildowner()
     @commands.command()
     async def setalmanaxchannel(self, ctx, channel: discord.TextChannel):
         """Set the channel for Almanax messages."""
