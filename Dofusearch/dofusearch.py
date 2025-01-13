@@ -41,63 +41,6 @@ def serialize(obj):
         return str(obj)
 
 class Dofusearch(commands.Cog):
-    """A cog to fetch Almanax data and item data using the Dofus Dude API."""
-
-    def __init__(self, bot):
-        self.bot = bot
-        self.configuration = dofusdude.Configuration(
-            host="https://api.dofusdu.de"
-        )
-
-    @commands.command()
-    async def almanax(self, ctx, date: str):
-        """Fetch the Almanax data for the provided date (yyyy-mm-dd)."""
-        # Validate the date format (optional)
-        try:
-            datetime.strptime(date, '%Y-%m-%d')
-        except ValueError:
-            await ctx.send("Invalid date format. Please use yyyy-mm-dd.")
-            return
-
-        with dofusdude.ApiClient(self.configuration) as api_client:
-            api_instance = dofusdude.AlmanaxApi(api_client)
-            language = 'es'  # Spanish
-
-            try:
-                api_response = api_instance.get_almanax_date(language, date)
-                bonus_description = api_response.bonus.description
-                bonus_type = api_response.bonus.type.name
-                tribute_name = api_response.tribute.item.name
-                tribute_image_url = api_response.tribute.item.image_urls.sd
-                reward_kamas = api_response.reward_kamas
-                almanax_date = date
-
-                image_extension = os.path.splitext(urlparse(tribute_image_url).path)[-1].lower()
-
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(tribute_image_url) as resp:
-                        if resp.status == 200:
-                            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=image_extension)
-                            temp_file_path = temp_file.name
-                            with open(temp_file_path, 'wb') as f:
-                                f.write(await resp.read())
-                            temp_file.close()
-
-                            formatted_message = (
-                                f"**Almanax for {almanax_date}:**\n\n"
-                                f"**Bonus:** {bonus_description} ({bonus_type})\n"
-                                f"**Tribute:** {tribute_name}\n"
-                                f"**Reward Kamas:** {reward_kamas}\n"
-                            )
-
-                            await ctx.send(formatted_message, file=discord.File(temp_file_path))
-                            os.remove(temp_file_path)
-                        else:
-                            await ctx.send("Failed to download the tribute image.")
-            except ApiException as e:
-                await ctx.send(f"Error when calling Almanax API: {e}")
-
-class Dofusearch(commands.Cog):
     """A cog to fetch item data using the Dofus Dude API.
     
     - If item is 'Recursos', do a second call to get_items_resources_single(ankama_id)
@@ -126,7 +69,7 @@ class Dofusearch(commands.Cog):
         search_methods = [
             ("ConsumablesApi", "get_items_consumables_search", "Consumibles"),      # Search logic done
             ("EquipmentApi", "get_items_equipment_search", "Equipamiento"),         # Search logic done
-            ("CosmeticsApi", "get_cosmetics_search", "Cosméticos"),                 # TODO
+            ("CosmeticsApi", "get_cosmetics_search", "Cosméticos"),                 # Search logic done
             ("ResourcesApi", "get_items_resource_search", "Recursos"),              # Search logic done
             ("MountsApi", "get_mounts_search", "Monturas"),                         # Search logic done
             ("QuestItemsApi", "get_items_quest_search", "Misiones"),                # Search logic done
@@ -472,6 +415,23 @@ class Dofusearch(commands.Cog):
                 await ctx.send(f"Error al obtener Misión detallada: {e}")
                 return
         
+        
+        cosmetic_types = [
+            "Alas de apariencia",
+            "Arma de apariencia",
+            "Arreos de dragopavo",
+            "Arreos de mulagua",
+            "Arreos de vueloceronte",
+            "Capa de apariencia",
+            "Escudo de apariencia",
+            "Hombreras",
+            "Mascota de apariencia",
+            "Mascotura de apariencia",
+            "Objeto de apariencia varios",
+            "Objeto viviente",
+            "Sombrero de apariencia",
+            "Traje"
+        ]
         # ---------------------------
         # If it's Equipamiento, fetch more details
         # ---------------------------
@@ -490,6 +450,61 @@ class Dofusearch(commands.Cog):
         item_name = getattr(matched_item, 'name', "Desconocido")
         item_type_obj = getattr(matched_item, 'type', None)
         item_type_name = getattr(item_type_obj, 'name', None)
+        
+        if item_type_name in cosmetic_types:
+            # Fetch detailed cosmetic data
+            try:
+                cosmetics_api = dofusdude.CosmeticsApi(api_client)
+                detailed_cosmetic = cosmetics_api.get_cosmetics_single(
+                    game=game,
+                    language=language,
+                    ankama_id=ankama_id
+                )
+
+                # Extract relevant fields
+                item_name = getattr(detailed_cosmetic, 'name', "Desconocido")
+                item_description = getattr(detailed_cosmetic, 'description', None)
+                item_type_obj = getattr(detailed_cosmetic, 'type', None)
+                item_type_name = getattr(item_type_obj, 'name', None)
+                item_pods = getattr(detailed_cosmetic, 'pods', None)
+                image_urls = getattr(detailed_cosmetic, 'image_urls', None)
+                image_sd = getattr(image_urls, 'sd', None) if image_urls else None
+                parent_set = getattr(detailed_cosmetic, 'parent_set', None)
+                parent_set_name = getattr(parent_set, 'name', None) if parent_set else None
+
+                # Build the embed for the cosmetic item
+                embed_color = discord.Color.blurple()
+                embed = discord.Embed(title=item_name, color=embed_color)
+
+                # Add description
+                if item_description:
+                    embed.description = item_description
+
+                # Add type name
+                if item_type_name:
+                    embed.add_field(name="Tipo", value=item_type_name, inline=True)
+
+                # Add pods
+                if item_pods is not None:
+                    embed.add_field(name="Pods", value=str(item_pods), inline=True)
+
+                # Add parent set
+                if parent_set_name:
+                    embed.add_field(name="Set cosmético", value=parent_set_name, inline=False)
+
+                # Add image
+                if image_sd:
+                    embed.set_image(url=image_sd)
+
+                # Send the embed
+                await ctx.send(embed=embed)
+                
+                return
+
+            except ApiException as e:
+                await ctx.send(f"Error al obtener datos del cosmético: {e}")
+                return
+        
         item_description = getattr(matched_item, 'description', None) or ""
         item_level = getattr(matched_item, 'level', None)
         item_range = getattr(matched_item, 'range', None)
