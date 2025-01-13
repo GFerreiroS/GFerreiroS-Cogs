@@ -129,7 +129,7 @@ class Dofusearch(commands.Cog):
             ("CosmeticsApi", "get_cosmetics_search", "Cosméticos"),                 # TODO
             ("ResourcesApi", "get_items_resource_search", "Recursos"),              # Search logic done
             ("MountsApi", "get_mounts_search", "Monturas"),                         # Search logic done
-            ("QuestItemsApi", "get_items_quest_search", "Misiones"),                # TODO
+            ("QuestItemsApi", "get_items_quest_search", "Misiones"),                # Search logic done
             ("SetsApi", "get_sets_search", "Conjuntos")                             # TODO
         ]
 
@@ -398,6 +398,81 @@ class Dofusearch(commands.Cog):
                 return
 
         # ---------------------------
+        # If category == "Misiones" => Get detailed quest item & build embed
+        # ---------------------------
+        if category == "Misiones" and ankama_id is not None:
+            try:
+                quest_items_api = dofusdude.QuestItemsApi(api_client)
+                # Fetch detailed quest item data
+                detailed_quest_item = quest_items_api.get_item_quest_single(
+                    game=game,
+                    language=language,
+                    ankama_id=ankama_id
+                )
+
+                # Extract relevant fields
+                item_name = getattr(detailed_quest_item, 'name', "Desconocido")
+                item_description = getattr(detailed_quest_item, 'description', None)
+                item_type_obj = getattr(detailed_quest_item, 'type', None)
+                item_type_name = getattr(item_type_obj, 'name', None) if item_type_obj else None
+                item_level = getattr(detailed_quest_item, 'level', None)
+                item_pods = getattr(detailed_quest_item, 'pods', None)
+                image_urls = getattr(detailed_quest_item, 'image_urls', None)
+                image_sd = getattr(image_urls, 'sd', None) if image_urls else None
+                item_effects = getattr(detailed_quest_item, 'effects', None)
+                item_conditions = getattr(detailed_quest_item, 'conditions', None)
+
+                # Build the embed
+                embed_color = discord.Color.blurple()
+                embed = discord.Embed(title=item_name, color=embed_color)
+
+                # Add description
+                if item_description:
+                    embed.description = item_description
+
+                # Add type
+                if item_type_name:
+                    embed.add_field(name="Tipo", value=item_type_name, inline=True)
+
+                # Add level
+                if item_level is not None:
+                    embed.add_field(name="Nivel", value=str(item_level), inline=True)
+
+                # Add pods
+                if item_pods is not None:
+                    embed.add_field(name="Pods", value=str(item_pods), inline=True)
+
+                # Add effects
+                if item_effects:
+                    effect_lines = [
+                        f"- {effect.formatted}" for effect in item_effects if getattr(effect, 'formatted', None)
+                    ]
+                    if effect_lines:
+                        embed.add_field(
+                            name="Efectos",
+                            value="\n".join(effect_lines),
+                            inline=False
+                        )
+
+                # Add conditions
+                if item_conditions:
+                    # Assuming conditions are strings or have a "condition" attribute
+                    conditions_text = getattr(item_conditions, 'condition', None) or str(item_conditions)
+                    embed.add_field(name="Condiciones", value=conditions_text, inline=False)
+
+                # Add image
+                if image_sd:
+                    embed.set_image(url=image_sd)
+
+                # Send the embed
+                await ctx.send(embed=embed)
+                return
+
+            except ApiException as e:
+                await ctx.send(f"Error al obtener Misión detallada: {e}")
+                return
+        
+        # ---------------------------
         # If it's Equipamiento, fetch more details
         # ---------------------------
         if category == "Equipamiento" and ankama_id is not None:
@@ -410,7 +485,7 @@ class Dofusearch(commands.Cog):
                 )
             except ApiException:
                 pass
-
+            
         # For all else (including equip with extra info now), we do pagination logic
         item_name = getattr(matched_item, 'name', "Desconocido")
         item_type_obj = getattr(matched_item, 'type', None)
@@ -480,8 +555,8 @@ class Dofusearch(commands.Cog):
         # Build pages
         pages = []
 
-        # If the description is <= 150 chars, all in one page
-        if len(item_description) <= 150:
+        # If the description is <= 300 chars, all in one page
+        if len(item_description) <= 300:
             page1.description = item_description
             pages.append(page1)
         else:
@@ -540,7 +615,7 @@ class Dofusearch(commands.Cog):
                 except discord.Forbidden:
                     pass
                 break
-
+        
         
 # Setup function to add the cog
 def setup(bot):
