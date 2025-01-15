@@ -1,7 +1,7 @@
 {
-    "author": ["Your Name"],
-    "description": "A cog for Dofus Almanax daily quests.",
-    "install_msg": "Thank you for installing Dofus Almanax!",
-    "short": "Dofus Almanax daily quests.",
-    "tags": ["dofus", "almanax", "daily quests"]
+    "author": ["GFerreiroS"],
+    "description": "A cog for searching every iten in Dofus.",
+    "install_msg": "Thank you for installing Dofusearch!",
+    "short": "Dofus item searcher.",
+    "tags": ["dofus", "items"]
 }
