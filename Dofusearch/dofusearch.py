@@ -6,8 +6,8 @@ import tempfile
 import json
 import asyncio
 import unicodedata
-from dofusdude.rest import ApiException # type: ignore
-from redbot.core import commands, checks # type: ignore
+from dofusdude.rest import ApiException
+from redbot.core import commands, checks
 from datetime import datetime
 from urllib.parse import urlparse
 
