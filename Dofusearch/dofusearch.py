@@ -7,7 +7,7 @@ import json
 import asyncio
 import unicodedata
 from dofusdude.rest import ApiException
-from redbot.core import commands
+from redbot.core import commands, checks
 from datetime import datetime
 from urllib.parse import urlparse
 
@@ -57,6 +57,9 @@ class Dofusearch(commands.Cog):
         )
 
     @commands.command()
+    @commands.cooldown(10, 10, commands.BucketType.guild)
+    @commands.max_concurrency(10, commands.BucketType.default)
+    @checks.bot_has_permissions(attach_files=True)
     async def dofusearch(self, ctx, *, name: str):
         """
         1) Search for the given name across Dofus items (search APIs).
@@ -65,6 +68,10 @@ class Dofusearch(commands.Cog):
         """
         name = remove_accents(name).lower()
         mount_prefixes = ["dragopavo", "vueloceronte", "mulagua"]
+        
+        if name == "gay":
+            await ctx.send("Gay tu!")
+            return
 
         search_methods = [
             ("ConsumablesApi", "get_items_consumables_search", "Consumibles"),      # Search logic done
