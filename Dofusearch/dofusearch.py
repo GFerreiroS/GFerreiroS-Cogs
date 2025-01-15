@@ -1,14 +1,14 @@
 import dofusdude
 import discord
-import aiohttp
-import os
-import tempfile
-import json
+# import aiohttp
+# import os
+# import tempfile
+# import json
 import asyncio
 import unicodedata
-from dofusdude.rest import ApiException
-from redbot.core import commands, checks
-from datetime import datetime
+from dofusdude.rest import ApiException # type: ignore
+from redbot.core import commands, checks # type: ignore
+# from datetime import datetime
 from urllib.parse import urlparse
 
 # Helper function to remove accents/diacritics
