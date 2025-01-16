@@ -6,10 +6,16 @@ import tempfile
 import json
 import asyncio
 import unicodedata
+import i18n
 from dofusdude.rest import ApiException
 from redbot.core import commands, checks
 from datetime import datetime
 from urllib.parse import urlparse
+
+i18n.load_path.append('locales')
+i18n.set('locale', 'es')
+i18n.set('enable_memoization', True)
+_ = i18n.t
 
 # Helper function to remove accents/diacritics
 def remove_accents(input_str: str) -> str:
@@ -43,10 +49,10 @@ def serialize(obj):
 class Dofusearch(commands.Cog):
     """A cog to fetch item data using the Dofus Dude API.
     
-    - If item is 'Recursos', do a second call to get_items_resources_single(ankama_id)
+    - If item is 'Resources', do a second call to get_items_resources_single(ankama_id)
       and output the raw JSON.
-    - If item is 'Consumibles', build an embed with name/description/etc.
-    - If item is 'Equipamiento', do the existing equip logic (pagination).
+    - If item is 'Consumables', build an embed with name/description/etc.
+    - If item is 'Equipment', do the existing equip logic (pagination).
     - Otherwise, handle all other categories as you wish.
     """
 
@@ -55,6 +61,18 @@ class Dofusearch(commands.Cog):
         self.configuration = dofusdude.Configuration(
             host="https://api.dofusdu.de"
         )
+        self.selected_language = 'es'
+
+    @commands.guildowner()
+    @commands.command()
+    async def set_language(self, ctx, language: str):
+        supported_languages = ['en', 'es', 'fr', 'de', 'pt']
+        if language in supported_languages:
+            i18n.set('locale', language)
+            self.selected_language = language
+            await ctx.send("Changed to ", language=language)
+        else:
+            await ctx.send("Language not supported. Supported languages: en, es, fr, de, pt")
 
     @commands.command()
     @commands.cooldown(10, 10, commands.BucketType.guild)
@@ -64,29 +82,33 @@ class Dofusearch(commands.Cog):
         """
         1) Search for the given name across Dofus items (search APIs).
         2) If the name starts with a mount prefix ('Dragopavo', 'Vueloceronte', 'Mulagua'), search mounts directly.
-        3) Handle other categories such as 'Recursos', 'Consumibles', etc.
+        3) Handle other categories such as 'Resources', 'Consumables', etc.
         """
         name = remove_accents(name).lower()
-        mount_prefixes = ["dragopavo", "vueloceronte", "mulagua"]
+        mount_prefixes = [
+            _("mount.dragopavo"),
+            _("mount.vueloceronte"),
+            _("mount.mulagua")
+        ]
         
         if name == "gay":
             await ctx.send("Gay tu!")
             return
 
         search_methods = [
-            ("ConsumablesApi", "get_items_consumables_search", "Consumibles"),      # Search logic done
-            ("EquipmentApi", "get_items_equipment_search", "Equipamiento"),         # Search logic done
-            ("CosmeticsApi", "get_cosmetics_search", "Cosméticos"),                 # Search logic done
-            ("ResourcesApi", "get_items_resource_search", "Recursos"),              # Search logic done
-            ("MountsApi", "get_mounts_search", "Monturas"),                         # Search logic done
-            ("QuestItemsApi", "get_items_quest_search", "Misiones"),                # Search logic done
-            ("SetsApi", "get_sets_search", "Conjuntos")                             # TODO
+            ("ConsumablesApi", "get_items_consumables_search", "Consumables"),      # Search logic done
+            ("EquipmentApi", "get_items_equipment_search", "Equipment"),            # Search logic done
+            ("CosmeticsApi", "get_cosmetics_search", "Cosmetics"),                  # Search logic done
+            ("ResourcesApi", "get_items_resource_search", "Resources"),             # Search logic done
+            ("MountsApi", "get_mounts_search", "Mounts"),                           # Search logic done
+            ("QuestItemsApi", "get_items_quest_search", "QuestItems"),              # Search logic done
+            ("SetsApi", "get_sets_search", "Sets")                                  # TODO
         ]
 
         results = None
 
         with dofusdude.ApiClient(self.configuration) as api_client:
-            language = 'es'
+            language = self.selected_language
             game = "dofus3"
 
             # STEP 1: Search for mounts if name starts with a mount prefix
@@ -181,14 +203,14 @@ class Dofusearch(commands.Cog):
             await ctx.send("No se ha encontrado ningún elemento con ese nombre.")
             return
 
-        # Handle other categories (Recursos, Consumibles, etc.)
+        # Handle other categories (Resources, Consumables, etc.)
         category, matched_item = results
         ankama_id = getattr(matched_item, 'ankama_id', None)
     
         # ---------------------------
-        # If category == "Recursos" => get detailed resource & output JSON
+        # If category == "Resources" => get detailed resource & output JSON
         # ---------------------------
-        if category == "Recursos" and ankama_id is not None:
+        if category == "Resources" and ankama_id is not None:
             try:
                 resources_api = dofusdude.ResourcesApi(api_client)
                 # Fetch detailed resource data
@@ -262,7 +284,7 @@ class Dofusearch(commands.Cog):
         # --------------------------- 
         # IF CONSUMABLES => BUILD A SPECIAL EMBED
         # ---------------------------
-        if category == "Consumibles" and ankama_id is not None:
+        if category == "Consumables" and ankama_id is not None:
             try:
                 consumables_api = dofusdude.ConsumablesApi(api_client)
                 # second call for detailed data
@@ -348,9 +370,9 @@ class Dofusearch(commands.Cog):
                 return
 
         # ---------------------------
-        # If category == "Misiones" => Get detailed quest item & build embed
+        # If category == "QuestItems" => Get detailed quest item & build embed
         # ---------------------------
-        if category == "Misiones" and ankama_id is not None:
+        if category == "QuestItems" and ankama_id is not None:
             try:
                 quest_items_api = dofusdude.QuestItemsApi(api_client)
                 # Fetch detailed quest item data
@@ -440,9 +462,9 @@ class Dofusearch(commands.Cog):
             "Traje"
         ]
         # ---------------------------
-        # If it's Equipamiento, fetch more details
+        # If it's Equipment, fetch more details
         # ---------------------------
-        if category == "Equipamiento" and ankama_id is not None:
+        if category == "Equipment" and ankama_id is not None:
             try:
                 equipment_api = dofusdude.EquipmentApi(api_client)
                 matched_item = equipment_api.get_items_equipment_single(
