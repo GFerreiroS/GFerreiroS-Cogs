@@ -12,8 +12,10 @@ from redbot.core import commands, checks
 from datetime import datetime
 from urllib.parse import urlparse
 
-i18n.load_path.append('locales')
+i18n.load_path.append('./locales')
 i18n.set('locale', 'es')
+i18n.set("file_format", "json")
+i18n.set('filename_format', '{locale}.{format}')
 i18n.set('enable_memoization', True)
 _ = i18n.t
 
@@ -65,12 +67,12 @@ class Dofusearch(commands.Cog):
 
     @commands.guildowner()
     @commands.command()
-    async def set_language(self, ctx, language: str):
+    async def searchlang(self, ctx, language: str):
         supported_languages = ['en', 'es', 'fr', 'de', 'pt']
         if language in supported_languages:
             i18n.set('locale', language)
             self.selected_language = language
-            await ctx.send("Changed to ", language=language)
+            await ctx.send(f"Changed to {language}")
         else:
             await ctx.send("Language not supported. Supported languages: en, es, fr, de, pt")
 
@@ -90,10 +92,6 @@ class Dofusearch(commands.Cog):
             _("mount.vueloceronte"),
             _("mount.mulagua")
         ]
-        
-        if name == "gay":
-            await ctx.send("Gay tu!")
-            return
 
         search_methods = [
             ("ConsumablesApi", "get_items_consumables_search", "Consumables"),      # Search logic done
@@ -120,7 +118,7 @@ class Dofusearch(commands.Cog):
                         language=language,
                         query=name
                     )
-
+                    
                     # Find exact match for the mount
                     matched_item = next(
                         (item for item in api_response if remove_accents(item.name).lower() == name),
