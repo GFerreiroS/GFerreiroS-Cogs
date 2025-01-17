@@ -1,8 +1,0 @@
-mount:
-  dragopavo: "dragopavo"
-  vueloceronte: "vueloceronte"
-  mulagua: "mulagua"
-
-messages:
-  mount_found: "Montura encontrada: %{mount}"
-  mount_not_found: "No se ha encontrado ninguna montura con ese prefijo."
