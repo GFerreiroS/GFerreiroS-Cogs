@@ -4,6 +4,7 @@ import os
 import asyncio
 import unicodedata
 import i18n
+import json
 from dofusdude.rest import ApiException
 from redbot.core import commands, checks
 
@@ -111,16 +112,21 @@ class Dofusearch(commands.Cog):
                         api_response = await search_method(game=game, language=language, query=name)
                     else:
                         api_response = search_method(game=game, language=language, query=name)
-
+                    
                     if isinstance(api_response, list):
-                        for item in api_response:
-                            item_name_raw = getattr(item, 'name', '')
-                            item_name_normalized = remove_accents(item_name_raw).lower()
-                            if item_name_normalized == name:
-                                results = (category, item)
-                                break
-                        if results:
-                            break
+                        matching_items = []
+                    for item in api_response:
+                        item_name_raw = getattr(item, 'name', '')
+                        item_name_normalized = remove_accents(item_name_raw).lower()
+                        if item_name_normalized == name:
+                            matching_items.append(item)
+
+                    # If there are matching items, find the one with the highest level
+                    if matching_items:
+                        # Sort items by level in descending order and take the first one
+                        highest_level_item = max(matching_items, key=lambda x: getattr(x, 'level', 0))
+                        results = (category, highest_level_item)
+                        break
 
                 except ApiException:
                     continue
@@ -141,7 +147,6 @@ class Dofusearch(commands.Cog):
         if category == "Mounts" and ankama_id is not None:
             try:
                 mounts_api = dofusdude.MountsApi(api_client)
-                # second call for detailed data
                 detailed_mount = mounts_api.get_mounts_single(
                     game=game,
                     language=language,
@@ -368,7 +373,7 @@ class Dofusearch(commands.Cog):
                 )
 
                 # Extract relevant fields
-                item_name = getattr(detailed_quest_item, 'name', "Desconocido")
+                item_name = getattr(detailed_quest_item, 'name', "Unknown")
                 item_description = getattr(detailed_quest_item, 'description', None)
                 item_type_obj = getattr(detailed_quest_item, 'type', None)
                 item_type_name = getattr(item_type_obj, 'name', None) if item_type_obj else None
@@ -462,7 +467,7 @@ class Dofusearch(commands.Cog):
                 pass
             
         # For all else (including equip with extra info now), we do pagination logic
-        item_name = getattr(matched_item, 'name', "Desconocido")
+        item_name = getattr(matched_item, 'name', "Unknown")
         item_type_obj = getattr(matched_item, 'type', None)
         item_type_name = getattr(item_type_obj, 'name', None)
 
@@ -537,39 +542,38 @@ class Dofusearch(commands.Cog):
 
         # ---- PAGE 1 (Basic info except description) ----
         page1 = discord.Embed(title=item_name, color=discord.Color.blurple())
-        # Tipo
-        if item_type_name:
-            page1.add_field(name="Tipo", value=item_type_name, inline=True)
-        # Nivel
-        if item_level is not None:
-            page1.add_field(name="Nivel", value=str(item_level), inline=True)
 
-        # Efectos
+        if item_type_name:
+            page1.add_field(name=_("key_words.type"), value=item_type_name, inline=True)
+
+        if item_level is not None:
+            page1.add_field(name=_("key_words.level"), value=str(item_level), inline=True)
+
         if item_effects:
             eff_lines = []
             for eff in item_effects:
-                eff_name = getattr(getattr(eff, 'type', None), 'name', '')
+                eff_name = getattr(getattr(eff, 'type', None), 'name', '').capitalize()
                 eff_formatted = getattr(eff, 'formatted', '')
                 if eff_name and eff_formatted:
                     eff_lines.append(f"- **{eff_name}**: {eff_formatted}")
             if eff_lines:
-                page1.add_field(name="Efectos", value="\n".join(eff_lines), inline=False)
+                page1.add_field(name=_("key_words.effects"), value="\n".join(eff_lines), inline=False)
 
         # Stats
         stats_lines = []
         if item_range is not None:
-            stats_lines.append(f"**Alcance**: {item_range}")
+            stats_lines.append(f"**{_('key_words.range')}**: {item_range}")
         if item_ap_cost is not None:
-            stats_lines.append(f"**Coste de PA**: {item_ap_cost}")
+            stats_lines.append(f"**{_('key_words.ap_cost')}**: {item_ap_cost}")
         if item_max_cast is not None:
-            stats_lines.append(f"**Lanzamientos/turno**: {item_max_cast}")
+            stats_lines.append(f"**{_('key_words.turn')}**: {item_max_cast}")
         if item_crit_prob is not None:
-            stats_lines.append(f"**Crítico**: {item_crit_prob}%")
+            stats_lines.append(f"**{_('key_words.crit_prob')}**: {item_crit_prob}%")
         if item_crit_bonus is not None:
-            stats_lines.append(f"**Bonificación Crítico**: {item_crit_bonus}")
+            stats_lines.append(f"**{_('key_words.crit_bonus')}**: {item_crit_bonus}")
         if stats_lines:
             page1.add_field(
-                name="Características adicionales",
+                name=_("key_words.additional_stats"),
                 value="\n".join(stats_lines),
                 inline=False
             )
@@ -581,7 +585,7 @@ class Dofusearch(commands.Cog):
         # Image
         if image_url:
             page1.set_image(url=image_url)
-
+                    
         # Build pages
         pages = []
 
