@@ -1,9 +1,20 @@
 {
   "fr": {
-    "mount": {
-      "dragopavo": "dragodinde",
-      "vueloceronte": "volkorne",
-      "mulagua": "muldo"
+    "cosmetic_types": {
+      "wings": "Ailes d'apparat",
+      "weapon": "Arme d'apparat",
+      "dragopavo_gear": "Harnachements de Dragodinde",
+      "mulagua_gear": "Harnachements de Muldo",
+      "vueloceronte_gear": "Harnachements de Volkorne",
+      "cape": "Cape d'apparat",
+      "shield": "Bouclier d'apparat",
+      "shoulders": "Épaulières",
+      "pet": "Familier d'apparat",
+      "pet_gear": "Montilier d'apparat",
+      "misc_cosmetics": "Objet d'apparat divers",
+      "living_item": "Objet vivant",
+      "hat": "Chapeau d'apparat",
+      "outfit": "Costume"
     }
   }
 }

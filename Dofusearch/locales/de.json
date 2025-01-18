@@ -1,9 +1,20 @@
 {
   "de": {
-    "mount": {
-      "dragopavo": "dracotruter",
-      "vueloceronte": "naskafer",
-      "mulagua": "seequagga"
+    "cosmetic_types": {
+      "wings": "Prunkflügel",
+      "weapon": "Prunkwaffe",
+      "dragopavo_gear": "Zaumzeuge des Dracotruters",
+      "mulagua_gear": "Zaumzeug für Naskäfer",
+      "vueloceronte_gear": "Zaumzeug für Seequaggas",
+      "cape": "Prunkumhang",
+      "shield": "Prunkschild",
+      "shoulders": "Schulterplatten",
+      "pet": "Prunkvertrauter",
+      "pet_gear": "Prunkreitbegleiter",
+      "misc_cosmetics": "Sonstiger Prunkgegenstand",
+      "living_item": "Lebending",
+      "hat": "Prunkkopfbedeckung",
+      "outfit": "Kleidung"
     }
   }
 }

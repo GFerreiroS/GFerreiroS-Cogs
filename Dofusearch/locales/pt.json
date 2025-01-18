@@ -1,9 +1,20 @@
 {
   "pt": {
-    "mount": {
-      "dragopavo": "dragoperu",
-      "vueloceronte": "vulkornio",
-      "mulagua": "marmula"
+    "cosmetic_types": {
+      "wings": "Asas de aparência",
+      "weapon": "Arma de aparência",
+      "dragopavo_gear": "Arreios de Dragoperu",
+      "mulagua_gear": "Arreios de Marmula",
+      "vueloceronte_gear": "Arreios de Vulkórnio",
+      "cape": "Capa de aparência",
+      "shield": "Escudo de aparência",
+      "shoulders": "Ombreiras",
+      "pet": "Mascote de aparência",
+      "pet_gear": "Montascote de aparência",
+      "misc_cosmetics": "Outro item de aparência",
+      "living_item": "Itens vivos",
+      "hat": "Chapéu de aparência",
+      "outfit": "Traje"
     }
   }
 }

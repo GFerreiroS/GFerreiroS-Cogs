@@ -1,18 +1,15 @@
 import dofusdude
 import discord
-import aiohttp
 import os
-import tempfile
-import json
 import asyncio
 import unicodedata
 import i18n
 from dofusdude.rest import ApiException
 from redbot.core import commands, checks
-from datetime import datetime
-from urllib.parse import urlparse
 
-i18n.load_path.append('./locales')
+current_directory = os.path.dirname(os.path.abspath(__file__))
+locales_path = os.path.join(current_directory, 'locales')
+i18n.load_path.append(locales_path)
 i18n.set('locale', 'es')
 i18n.set("file_format", "json")
 i18n.set('filename_format', '{locale}.{format}')
@@ -87,18 +84,13 @@ class Dofusearch(commands.Cog):
         3) Handle other categories such as 'Resources', 'Consumables', etc.
         """
         name = remove_accents(name).lower()
-        mount_prefixes = [
-            _("mount.dragopavo"),
-            _("mount.vueloceronte"),
-            _("mount.mulagua")
-        ]
 
         search_methods = [
+            ("MountsApi", "get_mounts_search", "Mounts"),                           # Search logic done
             ("ConsumablesApi", "get_items_consumables_search", "Consumables"),      # Search logic done
             ("EquipmentApi", "get_items_equipment_search", "Equipment"),            # Search logic done
             ("CosmeticsApi", "get_cosmetics_search", "Cosmetics"),                  # Search logic done
             ("ResourcesApi", "get_items_resource_search", "Resources"),             # Search logic done
-            ("MountsApi", "get_mounts_search", "Mounts"),                           # Search logic done
             ("QuestItemsApi", "get_items_quest_search", "QuestItems"),              # Search logic done
             ("SetsApi", "get_sets_search", "Sets")                                  # TODO
         ]
@@ -108,68 +100,6 @@ class Dofusearch(commands.Cog):
         with dofusdude.ApiClient(self.configuration) as api_client:
             language = self.selected_language
             game = "dofus3"
-
-            # STEP 1: Search for mounts if name starts with a mount prefix
-            if any(name.startswith(prefix) for prefix in mount_prefixes):
-                try:
-                    mounts_api = dofusdude.MountsApi(api_client)
-                    api_response = mounts_api.get_mounts_search(
-                        game=game,
-                        language=language,
-                        query=name
-                    )
-                    
-                    # Find exact match for the mount
-                    matched_item = next(
-                        (item for item in api_response if remove_accents(item.name).lower() == name),
-                        None
-                    )
-
-                    if not matched_item:
-                        await ctx.send("No se ha encontrado ninguna montura con ese nombre.")
-                        return
-
-                    ankama_id = getattr(matched_item, 'ankama_id', None)
-                    if not ankama_id:
-                        await ctx.send("No se encontró un ID válido para la montura.")
-                        return
-
-                    # Fetch detailed mount data
-                    detailed_mount = mounts_api.get_mounts_single(
-                        game=game,
-                        language=language,
-                        ankama_id=ankama_id
-                    )
-
-                    # Build an embed for the mount
-                    mount_name = getattr(detailed_mount, 'name', "Desconocido")
-                    image_sd = getattr(detailed_mount.image_urls, 'sd', None)
-                    effects = getattr(detailed_mount, 'effects', None)
-
-                    embed_color = discord.Color.blurple()
-                    embed = discord.Embed(
-                        title=mount_name,
-                        color=embed_color
-                    )
-
-                    # Add image
-                    if image_sd:
-                        embed.set_image(url=image_sd)
-
-                    # Add effects
-                    if effects:
-                        effects_text = "\n".join(
-                            [f"- {effect.formatted}" for effect in effects if getattr(effect, 'formatted', None)]
-                        )
-                        embed.add_field(name="Efectos", value=effects_text, inline=False)
-
-                    # Send the embed
-                    await ctx.send(embed=embed)
-                    return
-
-                except ApiException as e:
-                    await ctx.send(f"Error al obtener Montura detallada: {e}")
-                    return
 
             # STEP 2: Search for other categories (general logic)
             for api_class, method, category in search_methods:
@@ -204,6 +134,63 @@ class Dofusearch(commands.Cog):
         # Handle other categories (Resources, Consumables, etc.)
         category, matched_item = results
         ankama_id = getattr(matched_item, 'ankama_id', None)
+    
+        # --------------------------- 
+        # IF MOUNTS => BUILD A SPECIAL EMBED
+        # ---------------------------
+        if category == "Mounts" and ankama_id is not None:
+            try:
+                mounts_api = dofusdude.MountsApi(api_client)
+                # second call for detailed data
+                detailed_mount = mounts_api.get_mounts_single(
+                    game=game,
+                    language=language,
+                    ankama_id=ankama_id
+                )
+
+                # Now build an embed
+                mount_name = getattr(detailed_mount, 'name', None)
+                mount_description = getattr(detailed_mount, 'description', None)
+                image_urls = getattr(detailed_mount, 'image_urls', None)
+                image_sd = getattr(image_urls, 'sd', None) if image_urls else None
+                mount_effects = getattr(detailed_mount, 'effects', None)
+
+                embed_color = discord.Color.blurple()
+                embed = discord.Embed(title="", description="", color=embed_color)
+
+                # NAME => embed.title if not None
+                if mount_name:
+                    embed.title = mount_name
+
+                # DESCRIPTION => embed.description if not None
+                if mount_description:
+                    embed.description = mount_description
+
+                # IMAGE => set image
+                if image_sd:
+                    embed.set_image(url=image_sd)
+
+                # EFFECTS => bullet list
+                if mount_effects:
+                    effect_lines = []
+                    for eff in mount_effects:
+                        # We only display the "formatted" text
+                        eff_formatted = getattr(eff, 'formatted', None)
+                        if eff_formatted:
+                            effect_lines.append(f"- {eff_formatted}")
+                    if effect_lines:
+                        embed.add_field(
+                            name="Efectos",
+                            value="\n".join(effect_lines),
+                            inline=False
+                        )
+
+                await ctx.send(embed=embed)
+                return
+
+            except ApiException as e:
+                await ctx.send(f"Error al obtener Consumible detallado: {e}")
+                return
     
         # ---------------------------
         # If category == "Resources" => get detailed resource & output JSON
@@ -444,21 +431,22 @@ class Dofusearch(commands.Cog):
         
         
         cosmetic_types = [
-            "Alas de apariencia",
-            "Arma de apariencia",
-            "Arreos de dragopavo",
-            "Arreos de mulagua",
-            "Arreos de vueloceronte",
-            "Capa de apariencia",
-            "Escudo de apariencia",
-            "Hombreras",
-            "Mascota de apariencia",
-            "Mascotura de apariencia",
-            "Objeto de apariencia varios",
-            "Objeto viviente",
-            "Sombrero de apariencia",
-            "Traje"
+            _("cosmetic_types.wings"),
+            _("cosmetic_types.weapon"),
+            _("cosmetic_types.dragopavo_gear"),
+            _("cosmetic_types.mulagua_gear"),
+            _("cosmetic_types.vueloceronte_gear"),
+            _("cosmetic_types.cape"),
+            _("cosmetic_types.shield"),
+            _("cosmetic_types.shoulders"),
+            _("cosmetic_types.pet"),
+            _("cosmetic_types.pet_gear"),
+            _("cosmetic_types.misc_cosmetics"),
+            _("cosmetic_types.living_item"),
+            _("cosmetic_types.hat"),
+            _("cosmetic_types.outfit")
         ]
+
         # ---------------------------
         # If it's Equipment, fetch more details
         # ---------------------------
@@ -477,7 +465,7 @@ class Dofusearch(commands.Cog):
         item_name = getattr(matched_item, 'name', "Desconocido")
         item_type_obj = getattr(matched_item, 'type', None)
         item_type_name = getattr(item_type_obj, 'name', None)
-        
+
         if item_type_name in cosmetic_types:
             # Fetch detailed cosmetic data
             try:

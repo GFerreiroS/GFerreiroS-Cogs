@@ -1,0 +1,85 @@
+Language: en
+Ceremonial cape
+Ceremonial hat
+Ceremonial pet
+Ceremonial petsmount
+Ceremonial shield
+Ceremonial weapon
+Ceremonial Wings
+Costume
+Dragoturkey Harnesses
+Living object
+Miscellaneous ceremonial item
+Rhineetle Harnesses
+Seemyool Harnesses
+Shoulder Pads
+
+
+Language: fr
+Ailes d'apparat
+Arme d'apparat
+Bouclier d'apparat
+Cape d'apparat
+Chapeau d'apparat
+Costume
+Épaulières
+Familier d'apparat
+Harnachements de Dragodinde
+Harnachements de Muldo
+Harnachements de Volkorne
+Montilier d'apparat
+Objet d'apparat divers
+Objet vivant
+
+
+Language: es
+Alas de apariencia
+Arma de apariencia
+Arreos de dragopavo
+Arreos de mulagua
+Arreos de vueloceronte
+Capa de apariencia
+Escudo de apariencia
+Hombreras
+Mascota de apariencia
+Mascotura de apariencia
+Objeto de apariencia varios
+Objeto viviente
+Sombrero de apariencia
+Traje
+
+
+Language: pt
+Arma de aparência
+Arreios de Dragoperu
+Arreios de Marmula
+Arreios de Vulkórnio
+Asas de aparência
+Capa de aparência
+Chapéu de aparência
+Escudo de aparência
+Itens vivos
+Mascote de aparência
+Montascote de aparência
+Ombreiras
+Outro item de aparência
+Traje
+
+
+Language: de
+Kleidung
+Lebending
+Prunkflügel
+Prunkkopfbedeckung
+Prunkreitbegleiter
+Prunkschild
+Prunkumhang
+Prunkvertrauter
+Prunkwaffe
+Schulterplatten
+Sonstiger Prunkgegenstand
+Zaumzeuge des Dracotruters
+Zaumzeug für Naskäfer
+Zaumzeug für Seequaggas
+
+

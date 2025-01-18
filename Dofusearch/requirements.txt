@@ -1,0 +1,4 @@
+aiohttp==3.9.5
+discord.py==2.4.0
+dofusdude @ git+https://github.com/dofusdude/dofusdude-py.git@ef53bbda0eff5d1bb546d168a87ad44af8cecf2f
+i18nice==0.15.5
