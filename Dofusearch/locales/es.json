@@ -1,0 +1,47 @@
+{
+  "es": {
+    "cosmetic_types": {
+      "wings": "Alas de apariencia",
+      "weapon": "Arma de apariencia",
+      "dragopavo_gear": "Arreos de dragopavo",
+      "mulagua_gear": "Arreos de mulagua",
+      "vueloceronte_gear": "Arreos de vueloceronte",
+      "cape": "Capa de apariencia",
+      "shield": "Escudo de apariencia",
+      "shoulders": "Hombreras",
+      "pet": "Mascota de apariencia",
+      "pet_gear": "Mascotura de apariencia",
+      "misc_cosmetics": "Objeto de apariencia varios",
+      "living_item": "Objeto viviente",
+      "hat": "Sombrero de apariencia",
+      "outfit": "Traje"
+    },
+    "key_words": {
+      "type": "Tipo",
+      "level": "Nivel",
+      "effects": "Efectos",
+      "pods": "Pods",
+      "conditions": "Condiciones",
+      "range": "Alcance",
+      "ap_cost": "Coste de PA",
+      "turn": "Lanzamientos/turno",
+      "crit_prob": "Crítico",
+      "crit_bonus": "Bonificacion crítico",
+      "additional_stats": "Características adicionales",
+      "cosmetic_set": "Set cosmético"
+    },
+    "messages": {
+      "info": {
+        "not_found": "No se ha encontrado ningún elemento con ese nombre."
+      },
+      "error": {
+        "mount": "Error al obtener Montura detallada:",
+        "consumable": "Error al obtener Consumible detallado:",
+        "resource": "Error al obtener Recurso detallado:",
+        "questitem": "Error al obtener Objeto de misión detallado:",
+        "cosmetic": "Error al obtener Cosmetico detallado:",
+        "equipment": "Error al obtener Equipo detallado:"
+      }
+    }
+  }
+}
