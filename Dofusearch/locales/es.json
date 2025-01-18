@@ -29,6 +29,19 @@
       "crit_bonus": "Bonificacion crítico",
       "additional_stats": "Características adicionales",
       "cosmetic_set": "Set cosmético"
+    },
+    "messages": {
+      "info": {
+        "not_found": "No se ha encontrado ningún elemento con ese nombre."
+      },
+      "error": {
+        "mount": "Error al obtener Montura detallada:",
+        "consumable": "Error al obtener Consumible detallado:",
+        "resource": "Error al obtener Recurso detallado:",
+        "questitem": "Error al obtener Objeto de misión detallado:",
+        "cosmetic": "Error al obtener Cosmetico detallado:",
+        "equipment": "Error al obtener Equipo detallado:"
+      }
     }
   }
 }

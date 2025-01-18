@@ -29,6 +29,19 @@
       "crit_bonus": "Bônus críticos",
       "additional_stats": "Estatísticas adicionais",
       "cosmetic_set": "Set cosmético"
+    },
+    "messages": {
+      "info": {
+        "not_found": "Nenhum item encontrado com esse nome."
+      },
+      "error": {
+        "mount": "Erro ao buscar Montaria detalhada:",
+        "consumable": "Erro ao buscar Consumível detalhado:",
+        "resource": "Erro ao buscar Recurso detalhado:",
+        "questitem": "Erro ao buscar Item de missão detalhado:",
+        "cosmetic": "Erro ao buscar Cosmético detalhado:",
+        "equipment": "Erro ao buscar Equipamento detalhado:"
+      }
     }
   }
 }

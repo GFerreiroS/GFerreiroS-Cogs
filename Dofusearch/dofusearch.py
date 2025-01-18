@@ -4,7 +4,6 @@ import os
 import asyncio
 import unicodedata
 import i18n
-import json
 from dofusdude.rest import ApiException
 from redbot.core import commands, checks
 
@@ -134,7 +133,7 @@ class Dofusearch(commands.Cog):
                     continue
 
         if not results:
-            await ctx.send("No se ha encontrado ningún elemento con ese nombre.")
+            await ctx.send(_("messages.info.not_found"))
             return
 
         # Handle other categories (Resources, Consumables, etc.)
@@ -194,7 +193,7 @@ class Dofusearch(commands.Cog):
                 return
 
             except ApiException as e:
-                await ctx.send(f"Error al obtener Consumible detallado: {e}")
+                await ctx.send(f"Error al obtener Montura detallado: {e}")
                 return
     
         # ---------------------------
@@ -464,6 +463,7 @@ class Dofusearch(commands.Cog):
                     ankama_id=ankama_id
                 )
             except ApiException:
+                await ctx.send(f"Error al obtener Equipamiento detallado: {e}")
                 pass
             
         # For all else (including equip with extra info now), we do pagination logic

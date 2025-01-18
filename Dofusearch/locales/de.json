@@ -29,6 +29,19 @@
       "crit_bonus": "Bonus Kritische Treffer",
       "additional_stats": "Zusätzliche Statistiken",
       "cosmetic_set": "Kosmetikset"
+    },
+    "messages": {
+      "info": {
+        "not_found": "Kein Element mit diesem Namen gefunden."
+      },
+      "error": {
+        "mount": "Fehler beim Abrufen des detaillierten Reittiers:",
+        "consumable": "Fehler beim Abrufen des detaillierten Verbrauchsmaterials:",
+        "resource": "Fehler beim Abrufen der detaillierten Ressource:",
+        "questitem": "Fehler beim Abrufen des detaillierten Quest-Objekts:",
+        "cosmetic": "Fehler beim Abrufen des detaillierten Kosmetikartikels:",
+        "equipment": "Fehler beim Abrufen der detaillierten Ausrüstung:"
+      }
     }
   }
 }

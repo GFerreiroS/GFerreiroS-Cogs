@@ -29,6 +29,19 @@
       "crit_bonus": "Bonus critique",
       "additional_stats": "Statistiques supplémentaires",
       "cosmetic_set": "Set cosmétique"
+    },
+    "messages": {
+      "info": {
+        "not_found": "Aucun élément trouvé avec ce nom."
+      },
+      "error": {
+        "mount": "Erreur lors de la récupération de la monture détaillée :",
+        "consumable": "Erreur lors de la récupération du consommable détaillé :",
+        "resource": "Erreur lors de la récupération de la ressource détaillée :",
+        "questitem": "Erreur lors de la récupération de l'objet de quête détaillé :",
+        "cosmetic": "Erreur lors de la récupération du cosmétique détaillé :",
+        "equipment": "Erreur lors de la récupération de l'équipement détaillé :"
+      }
     }
   }
 }
