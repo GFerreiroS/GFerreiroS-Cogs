@@ -1,9 +1,20 @@
 {
   "es": {
-    "mount": {
-      "dragopavo": "dragopavo",
-      "vueloceronte": "vueloceronte",
-      "mulagua": "mulagua"
+    "cosmetic_types": {
+      "wings": "Alas de apariencia",
+      "weapon": "Arma de apariencia",
+      "dragopavo_gear": "Arreos de dragopavo",
+      "mulagua_gear": "Arreos de mulagua",
+      "vueloceronte_gear": "Arreos de vueloceronte",
+      "cape": "Capa de apariencia",
+      "shield": "Escudo de apariencia",
+      "shoulders": "Hombreras",
+      "pet": "Mascota de apariencia",
+      "pet_gear": "Mascotura de apariencia",
+      "misc_cosmetics": "Objeto de apariencia varios",
+      "living_item": "Objeto viviente",
+      "hat": "Sombrero de apariencia",
+      "outfit": "Traje"
     }
   }
 }

@@ -13,9 +13,9 @@ for lang in "${languages[@]}"; do
   
   # Fetch the data and filter the family names
   curl -X 'GET' \
-    "https://api.dofusdu.de/dofus3/v1/$lang/mounts/all" \
+    "https://api.dofusdu.de/dofus3/v1/$lang/items/cosmetics/all" \
     -H 'accept: application/json' | \
-    jq -r '.mounts[].family.name' | \
+    jq -r '.items[].type.name' | \
     sort | \
     uniq > "$lang_families.txt"
 
