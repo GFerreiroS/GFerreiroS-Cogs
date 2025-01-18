@@ -17,11 +17,18 @@
       "outfit": "Kleidung"
     },
     "key_words": {
-      "type": "Tipo",
-      "level": "Nivel",
-      "effects": "Efectos",
+      "type": "Typ",
+      "level": "Stufe",
+      "effects": "Wirkungen",
       "pods": "Pods",
-      "condifions": "Condiciones"
+      "conditions": "Voraussetzungen",
+      "range": "Reichweite",
+      "ap_cost": "AP-Kosten",
+      "turn": "Besetzung pro Runde",
+      "crit_prob": "Kritisch",
+      "crit_bonus": "Bonus Kritische Treffer",
+      "additional_stats": "Zusätzliche Statistiken",
+      "cosmetic_set": "Kosmetikset"
     }
   }
 }
