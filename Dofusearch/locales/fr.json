@@ -27,7 +27,8 @@
       "turn": "Lancer par tour",
       "crit_prob": "Critique",
       "crit_bonus": "Bonus critique",
-      "additional_stats": "Statistiques supplémentaires"
+      "additional_stats": "Statistiques supplémentaires",
+      "cosmetic_set": "Set cosmétique"
     }
   }
 }

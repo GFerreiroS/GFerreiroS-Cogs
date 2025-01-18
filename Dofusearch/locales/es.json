@@ -27,7 +27,8 @@
       "turn": "Lanzamientos/turno",
       "crit_prob": "Crítico",
       "crit_bonus": "Bonificacion crítico",
-      "additional_stats": "Características adicionales"
+      "additional_stats": "Características adicionales",
+      "cosmetic_set": "Set cosmético"
     }
   }
 }

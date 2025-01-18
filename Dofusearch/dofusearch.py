@@ -185,7 +185,7 @@ class Dofusearch(commands.Cog):
                             effect_lines.append(f"- {eff_formatted}")
                     if effect_lines:
                         embed.add_field(
-                            name="Efectos",
+                            name=_("key_words.effects"),
                             value="\n".join(effect_lines),
                             inline=False
                         )
@@ -235,15 +235,15 @@ class Dofusearch(commands.Cog):
 
                 # Add type name
                 if item_type_name:
-                    embed.add_field(name="Tipo", value=item_type_name, inline=True)
+                    embed.add_field(name=_("key_words.type"), value=item_type_name, inline=True)
 
                 # Add level
                 if item_level is not None:
-                    embed.add_field(name="Nivel", value=str(item_level), inline=True)
+                    embed.add_field(name=_("key_words.level"), value=str(item_level), inline=True)
 
                 # Add pods
                 if item_pods is not None:
-                    embed.add_field(name="Pods", value=str(item_pods), inline=True)
+                    embed.add_field(name=_("key_words.pods"), value=str(item_pods), inline=True)
 
                 # Add effects
                 if item_effects:
@@ -254,7 +254,7 @@ class Dofusearch(commands.Cog):
                             effect_lines.append(f"- {eff_formatted}")
                     if effect_lines:
                         embed.add_field(
-                            name="Efectos",
+                            name=_("key_words.effects"),
                             value="\n".join(effect_lines),
                             inline=False
                         )
@@ -309,15 +309,15 @@ class Dofusearch(commands.Cog):
 
                 # TYPE => field
                 if item_type_name:
-                    embed.add_field(name="Tipo", value=item_type_name, inline=True)
+                    embed.add_field(name=_("key_words.type"), value=item_type_name, inline=True)
 
                 # LEVEL => field
                 if item_level is not None:
-                    embed.add_field(name="Nivel", value=str(item_level), inline=True)
+                    embed.add_field(name=_("key_words.level"), value=str(item_level), inline=True)
 
                 # PODS => field
                 if item_pods is not None:
-                    embed.add_field(name="Pods", value=str(item_pods), inline=True)
+                    embed.add_field(name=_("key_words.pods"), value=str(item_pods), inline=True)
 
                 # IMAGE => set image
                 if image_sd:
@@ -333,7 +333,7 @@ class Dofusearch(commands.Cog):
                             effect_lines.append(f"- {eff_formatted}")
                     if effect_lines:
                         embed.add_field(
-                            name="Efectos",
+                            name=_("key_words.effects"),
                             value="\n".join(effect_lines),
                             inline=False
                         )
@@ -347,7 +347,7 @@ class Dofusearch(commands.Cog):
                     # Or just do a naive approach:
                     cond_text = str(item_conditions)
                     embed.add_field(
-                        name="Condiciones",
+                        name=_("key_words.conditions"),
                         value=cond_text,
                         inline=False
                     )
@@ -394,15 +394,15 @@ class Dofusearch(commands.Cog):
 
                 # Add type
                 if item_type_name:
-                    embed.add_field(name="Tipo", value=item_type_name, inline=True)
+                    embed.add_field(name=_("key_words.type"), value=item_type_name, inline=True)
 
                 # Add level
                 if item_level is not None:
-                    embed.add_field(name="Nivel", value=str(item_level), inline=True)
+                    embed.add_field(name=_("key_words.level"), value=str(item_level), inline=True)
 
                 # Add pods
                 if item_pods is not None:
-                    embed.add_field(name="Pods", value=str(item_pods), inline=True)
+                    embed.add_field(name=_("key_words.pods"), value=str(item_pods), inline=True)
 
                 # Add effects
                 if item_effects:
@@ -411,7 +411,7 @@ class Dofusearch(commands.Cog):
                     ]
                     if effect_lines:
                         embed.add_field(
-                            name="Efectos",
+                            name=_("key_words.effects"),
                             value="\n".join(effect_lines),
                             inline=False
                         )
@@ -420,7 +420,7 @@ class Dofusearch(commands.Cog):
                 if item_conditions:
                     # Assuming conditions are strings or have a "condition" attribute
                     conditions_text = getattr(item_conditions, 'condition', None) or str(item_conditions)
-                    embed.add_field(name="Condiciones", value=conditions_text, inline=False)
+                    embed.add_field(name=_("key_words.conditions"), value=conditions_text, inline=False)
 
                 # Add image
                 if image_sd:
@@ -502,15 +502,15 @@ class Dofusearch(commands.Cog):
 
                 # Add type name
                 if item_type_name:
-                    embed.add_field(name="Tipo", value=item_type_name, inline=True)
+                    embed.add_field(name=_("key_words.type"), value=item_type_name, inline=True)
 
                 # Add pods
                 if item_pods is not None:
-                    embed.add_field(name="Pods", value=str(item_pods), inline=True)
+                    embed.add_field(name=_("key_words.pods"), value=str(item_pods), inline=True)
 
                 # Add parent set
                 if parent_set_name:
-                    embed.add_field(name="Set cosmético", value=parent_set_name, inline=False)
+                    embed.add_field(name=_("key_words.cosmetic_set"), value=parent_set_name, inline=False)
 
                 # Add image
                 if image_sd:

@@ -18,10 +18,17 @@
     },
     "key_words": {
       "type": "Tipo",
-      "level": "Nivel",
-      "effects": "Efectos",
+      "level": "Nível",
+      "effects": "Efeitos",
       "pods": "Pods",
-      "condifions": "Condiciones"
+      "conditions": "Condições",
+      "range": "Alcance",
+      "ap_cost": "Custo do PA",
+      "turn": "Lançamentos por turno",
+      "crit_prob": "Crítico",
+      "crit_bonus": "Bônus críticos",
+      "additional_stats": "Estatísticas adicionais",
+      "cosmetic_set": "Set cosmético"
     }
   }
 }
