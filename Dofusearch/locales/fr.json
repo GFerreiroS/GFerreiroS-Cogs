@@ -15,6 +15,19 @@
       "living_item": "Objet vivant",
       "hat": "Chapeau d'apparat",
       "outfit": "Costume"
+    },
+    "key_words": {
+      "type": "Type",
+      "level": "Niveau",
+      "effects": "Effets",
+      "pods": "Poids",
+      "conditions": "Conditions",
+      "range": "Portée",
+      "ap_cost": "Coût du PA",
+      "turn": "Lancer par tour",
+      "crit_prob": "Critique",
+      "crit_bonus": "Bonus critique",
+      "additional_stats": "Statistiques supplémentaires"
     }
   }
 }

@@ -15,6 +15,19 @@
       "living_item": "Objeto viviente",
       "hat": "Sombrero de apariencia",
       "outfit": "Traje"
+    },
+    "key_words": {
+      "type": "Tipo",
+      "level": "Nivel",
+      "effects": "Efectos",
+      "pods": "Pods",
+      "conditions": "Condiciones",
+      "range": "Alcance",
+      "ap_cost": "Coste de PA",
+      "turn": "Lanzamientos/turno",
+      "crit_prob": "Crítico",
+      "crit_bonus": "Bonificacion crítico",
+      "additional_stats": "Características adicionales"
     }
   }
 }
