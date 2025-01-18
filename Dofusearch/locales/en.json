@@ -29,6 +29,19 @@
       "crit_bonus": "Critical bonuses",
       "additional_stats": "Additional stats",
       "cosmetic_set": "Cosmetic set"
+    },
+    "messages": {
+      "info": {
+        "not_found": "No item found with that name."
+      },
+      "error": {
+        "mount": "Error fetching detailed Mount:",
+        "consumable": "Error fetching detailed Consumable:",
+        "resource": "Error fetching detailed Resource:",
+        "questitem": "Error fetching detailed Quest Item:",
+        "cosmetic": "Error fetching detailed Cosmetic:",
+        "equipment": "Error fetching detailed Equipment:"
+      }
     }
   }
 }
