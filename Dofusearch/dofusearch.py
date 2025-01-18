@@ -16,43 +16,17 @@ i18n.set('filename_format', '{locale}.{format}')
 i18n.set('enable_memoization', True)
 _ = i18n.t
 
-# Helper function to remove accents/diacritics
 def remove_accents(input_str: str) -> str:
-    """
-    Removes all accent/diacritic marks from the given string
-    and returns the normalized version (e.g., "á" -> "a").
-    """
+    # Removes all accent/diacritic marks from the given string
+    # and returns the normalized version (e.g., "á" -> "a").
     nf = unicodedata.normalize('NFD', input_str)
     return ''.join(ch for ch in nf if unicodedata.category(ch) != 'Mn')
 
-# Helper function to serialize objects that are not JSON-serializable by default
-def json_default(obj):
-    """
-    Converts sets to lists, and anything else not serializable to string.
-    """
-    if isinstance(obj, set):
-        return list(obj)
-    return str(obj)
-
-# Helper function to serialize non-serializable objects (if you still need it)
-def serialize(obj):
-    if hasattr(obj, 'dict'):
-        return obj.dict()
-    elif isinstance(obj, list):
-        return [serialize(item) for item in obj]
-    elif isinstance(obj, dict):
-        return {key: serialize(value) for key, value in obj.items()}
-    else:
-        return str(obj)
-
 class Dofusearch(commands.Cog):
-    """A cog to fetch item data using the Dofus Dude API.
+    """
+    A cog to fetch item data using the Dofus Dude API.
     
-    - If item is 'Resources', do a second call to get_items_resources_single(ankama_id)
-      and output the raw JSON.
-    - If item is 'Consumables', build an embed with name/description/etc.
-    - If item is 'Equipment', do the existing equip logic (pagination).
-    - Otherwise, handle all other categories as you wish.
+    This cog allows you to search for items, mounts, consumables, equipment, resources, quest items and sets (sets WIP).
     """
 
     def __init__(self, bot):
@@ -72,7 +46,7 @@ class Dofusearch(commands.Cog):
     @commands.command()
     async def searchlang(self, ctx, language: str):
         """
-        Change the search language.
+        Change the search language. Available languages: en, es, fr, de, pt
         """
         supported_languages = ['en', 'es', 'fr', 'de', 'pt']
         if language in supported_languages:
@@ -88,9 +62,9 @@ class Dofusearch(commands.Cog):
     @checks.bot_has_permissions(attach_files=True)
     async def dofusearch(self, ctx, *, name: str):
         """
-        1) Search for the given name across Dofus items (search APIs).
-        2) If the name starts with a mount prefix ('Dragopavo', 'Vueloceronte', 'Mulagua'), search mounts directly.
-        3) Handle other categories such as 'Resources', 'Consumables', etc.
+        Search for an item, mount, consumable, equipment, resource, quest item or set.
+        If the name is not equal to the item's name, the search will fail.
+        Its not case sentitive and accepts accents.
         """
         name = remove_accents(name).lower()
 
