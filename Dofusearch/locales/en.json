@@ -1,0 +1,47 @@
+{
+  "en": {
+    "cosmetic_types": {
+      "wings": "Ceremonial Wings",
+      "weapon": "Ceremonial weapon",
+      "dragopavo_gear": "Dragoturkey Harnesses",
+      "mulagua_gear": "Seemyool Harnesses",
+      "vueloceronte_gear": "Rhineetle Harnesses",
+      "cape": "Ceremonial cape",
+      "shield": "Ceremonial shield",
+      "shoulders": "Shoulder Pads",
+      "pet": "Ceremonial pet",
+      "pet_gear": "Ceremonial petsmount",
+      "misc_cosmetics": "Miscellaneous ceremonial item",
+      "living_item": "Living object",
+      "hat": "Ceremonial hat",
+      "outfit": "Costume"
+    },
+    "key_words": {
+      "type": "Type",
+      "level": "Level",
+      "effects": "Effects",
+      "pods": "Pods",
+      "conditions": "Conditions",
+      "range": "Range",
+      "ap_cost": "AP cost",
+      "turn": "Cast per turn",
+      "crit_prob": "Critical",
+      "crit_bonus": "Critical bonuses",
+      "additional_stats": "Additional stats",
+      "cosmetic_set": "Cosmetic set"
+    },
+    "messages": {
+      "info": {
+        "not_found": "No item found with that name."
+      },
+      "error": {
+        "mount": "Error fetching detailed Mount:",
+        "consumable": "Error fetching detailed Consumable:",
+        "resource": "Error fetching detailed Resource:",
+        "questitem": "Error fetching detailed Quest Item:",
+        "cosmetic": "Error fetching detailed Cosmetic:",
+        "equipment": "Error fetching detailed Equipment:"
+      }
+    }
+  }
+}

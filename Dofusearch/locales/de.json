@@ -1,0 +1,47 @@
+{
+  "de": {
+    "cosmetic_types": {
+      "wings": "Prunkflügel",
+      "weapon": "Prunkwaffe",
+      "dragopavo_gear": "Zaumzeuge des Dracotruters",
+      "mulagua_gear": "Zaumzeug für Naskäfer",
+      "vueloceronte_gear": "Zaumzeug für Seequaggas",
+      "cape": "Prunkumhang",
+      "shield": "Prunkschild",
+      "shoulders": "Schulterplatten",
+      "pet": "Prunkvertrauter",
+      "pet_gear": "Prunkreitbegleiter",
+      "misc_cosmetics": "Sonstiger Prunkgegenstand",
+      "living_item": "Lebending",
+      "hat": "Prunkkopfbedeckung",
+      "outfit": "Kleidung"
+    },
+    "key_words": {
+      "type": "Typ",
+      "level": "Stufe",
+      "effects": "Wirkungen",
+      "pods": "Pods",
+      "conditions": "Voraussetzungen",
+      "range": "Reichweite",
+      "ap_cost": "AP-Kosten",
+      "turn": "Besetzung pro Runde",
+      "crit_prob": "Kritisch",
+      "crit_bonus": "Bonus Kritische Treffer",
+      "additional_stats": "Zusätzliche Statistiken",
+      "cosmetic_set": "Kosmetikset"
+    },
+    "messages": {
+      "info": {
+        "not_found": "Kein Element mit diesem Namen gefunden."
+      },
+      "error": {
+        "mount": "Fehler beim Abrufen des detaillierten Reittiers:",
+        "consumable": "Fehler beim Abrufen des detaillierten Verbrauchsmaterials:",
+        "resource": "Fehler beim Abrufen der detaillierten Ressource:",
+        "questitem": "Fehler beim Abrufen des detaillierten Quest-Objekts:",
+        "cosmetic": "Fehler beim Abrufen des detaillierten Kosmetikartikels:",
+        "equipment": "Fehler beim Abrufen der detaillierten Ausrüstung:"
+      }
+    }
+  }
+}
