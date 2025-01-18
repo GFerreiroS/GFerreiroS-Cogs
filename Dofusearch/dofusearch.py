@@ -5,7 +5,7 @@ import asyncio
 import unicodedata
 import i18n
 from dofusdude.rest import ApiException
-from redbot.core import commands, checks
+from redbot.core import commands, checks, Config
 
 current_directory = os.path.dirname(os.path.abspath(__file__))
 locales_path = os.path.join(current_directory, 'locales')
@@ -60,19 +60,28 @@ class Dofusearch(commands.Cog):
         self.configuration = dofusdude.Configuration(
             host="https://api.dofusdu.de"
         )
-        self.selected_language = 'es'
+        self.config = Config.get_conf(self, identifier=1234567890, force_registration=True)
+        self.config.register_global(selected_language="es")  # Default to 'es'
+        self.selected_language = "es"  # Default value
+
+    async def cog_load(self):
+        """Load the stored language when the cog is loaded."""
+        self.selected_language = await self.config.selected_language()
 
     @commands.guildowner()
     @commands.command()
     async def searchlang(self, ctx, language: str):
+        """
+        Change the search language.
+        """
         supported_languages = ['en', 'es', 'fr', 'de', 'pt']
         if language in supported_languages:
-            i18n.set('locale', language)
+            await self.config.selected_language.set(language)
             self.selected_language = language
-            await ctx.send(f"Changed to {language}")
+            await ctx.send(f"Changed language to {language}")
         else:
             await ctx.send("Language not supported. Supported languages: en, es, fr, de, pt")
-
+        
     @commands.command()
     @commands.cooldown(10, 10, commands.BucketType.guild)
     @commands.max_concurrency(10, commands.BucketType.default)
