@@ -43,6 +43,20 @@ class Dofusalmanax(commands.Cog):
 
     @commands.guildowner()
     @commands.command()
+    async def almanaxlang(self, ctx, language: str):
+        """
+        Change the almanax language. Available languages: en, es, fr, de, pt
+        """
+        supported_languages = ['en', 'es', 'fr', 'de', 'pt']
+        if language in supported_languages:
+            await self.config.selected_language.set(language)
+            self.selected_language = language
+            await ctx.send(f"Changed language to {language}")
+        else:
+            await ctx.send("Language not supported. Supported languages: en, es, fr, de, pt")
+            
+    @commands.guildowner()
+    @commands.command()
     async def almanaxrole(self, ctx, role: discord.Role):
         """
         Set the role to be mentioned in Almanax messages.
