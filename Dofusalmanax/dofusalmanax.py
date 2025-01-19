@@ -1,218 +1,241 @@
+import dofusdude
 import discord
+from dofusdude.rest import ApiException
 from redbot.core import commands, Config
-import asyncio
-import datetime
-from io import BytesIO
-import os
-from PIL import Image
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
+from discord.ext import tasks
+from datetime import datetime, timedelta, timezone
 
+class Dofusalmanax(commands.Cog):
+    """A cog to fetch and send Almanax data daily using the Dofus Dude API."""
 
-class DofusAlmanax(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.config = Config.get_conf(
-            self, identifier=1234567890, force_registration=True
+        self.configuration = dofusdude.Configuration(
+            host="https://api.dofusdu.de"
         )
-
-        # Register persistent storage for each guild
-        self.config.register_guild(
-            channel_id=None,  # Persistent storage for channel ID
-            guild_id=None,  # Persistent storage for guild ID (optional, if you need to track it explicitly)
+        self.config = Config.get_conf(self, identifier=47294748274, force_registration=True)
+        self.config.register_global(
+            selected_language="es",
+            almanax_role=None,
+            target_channel=None,
+            warning_hours=0  # Default: No warning
         )
+        self.selected_language = "es"
+        self.almanax_role = None
+        self.target_channel = None
+        self.warning_hours = 0
 
-        self.image_filename = "almanax_image.png"
-        self.channel_id = None  # Fallback in case config doesn't load properly
-        self.guild_id = None  # Fallback for guild ID
+        # Start the loops
+        self.almanax_loop.start()
+        self.warning_loop.start()
 
-        # Start the scheduler
-        self.bot.loop.create_task(self.start_scheduler())
+    async def cog_load(self):
+        """Load the stored settings when the cog is loaded."""
+        self.selected_language = await self.config.selected_language()
+        self.almanax_role = await self.config.almanax_role()
+        self.target_channel = await self.config.target_channel()
+        self.warning_hours = await self.config.warning_hours()
 
-    async def start_scheduler(self):
-        """Start the almanax_scheduler task."""
-        await self.bot.wait_until_ready()
-
-        # Load the configuration for the guilds
-        for guild in self.bot.guilds:
-            # Retrieve channel_id for the guild
-            guild_config = self.config.guild(guild)
-            self.channel_id = await guild_config.channel_id()
-            self.guild_id = guild.id  # Use dynamic guild ID
-
-            # If no channel is configured, print a helpful message
-            if not self.channel_id:
-                print(
-                    f"No channel configured for guild {guild.id}. Use the `setalmanaxchannel` command."
-                )
-
-        # Start the scheduler task
-        await self.almanax_scheduler()
-
-    async def almanax_scheduler(self):
-        """Scheduler to send the Almanax image at 23:30 UTC each day."""
-        while True:
-            # If channel_id is missing, try to load it from the configuration
-            if not self.channel_id:
-                print("Channel ID not set. Attempting to reload from configuration...")
-                for guild in self.bot.guilds:
-                    self.channel_id = await self.config.guild(guild).channel_id()
-                    self.guild_id = guild.id
-
-            # Continue only if channel_id is configured
-            if not self.channel_id:
-                print("Channel ID is still not configured. Skipping this cycle.")
-                await asyncio.sleep(60)  # Retry after 1 minute
-                continue  # Move to the next iteration of the loop
-
-            now = datetime.datetime.utcnow()
-            target_time = datetime.time(23, 30)  # 23:30 UTC
-            next_run = datetime.datetime.combine(now.date(), target_time)
-
-            if now >= next_run:
-                next_run += datetime.timedelta(days=1)
-
-            sleep_time = (next_run - now).total_seconds()
-            print(
-                f"Sleeping for {sleep_time} seconds until the next run at {next_run} UTC..."
-            )
-            await asyncio.sleep(sleep_time)
-
-            # Generate and send the image
-            print("Generating and sending Almanax image...")
-            image = await self.generate_image()
-            if image:
-                guild = self.bot.get_guild(self.guild_id)
-                if not guild:
-                    print(f"Guild with ID {self.guild_id} not found.")
-                    continue  # Skip to the next iteration of the loop
-
-                almanax_role = discord.utils.get(guild.roles, name="Almanax")
-                channel = guild.get_channel(self.channel_id)
-
-                if almanax_role and channel:
-                    await channel.send(f"{almanax_role.mention} {now.date()}")
-                    await channel.send(file=discord.File(image, "almanax_image.png"))
-                else:
-                    print(f"Channel or role not found in guild {self.guild_id}.")
-            else:
-                print("An error occurred while generating the image.")
+    async def cog_unload(self):
+        """Stop the loops when the cog is unloaded."""
+        self.almanax_loop.cancel()
+        self.warning_loop.cancel()
 
     @commands.guildowner()
     @commands.command()
-    async def setalmanaxchannel(self, ctx, channel: discord.TextChannel):
-        """Set the channel for Almanax messages."""
-        guild_id = ctx.guild.id  # Dynamically get the guild ID
-        self.channel_id = channel.id  # Save the channel ID in memory
-        self.guild_id = guild_id  # Save the guild ID in memory
+    async def almanaxrole(self, ctx, role: discord.Role):
+        """
+        Set the role to be mentioned in Almanax messages.
+        """
+        await self.config.almanax_role.set(role.name)
+        self.almanax_role = role.name
+        await ctx.send(f"The role `{role.name}` has been set for Almanax notifications.")
 
-        # Save both to persistent storage
-        await self.config.guild(ctx.guild).channel_id.set(channel.id)
-        await self.config.guild(ctx.guild).guild_id.set(guild_id)  # Optional
-
-        await ctx.send(
-            f"The Almanax channel has been set to {channel.mention} for this server."
-        )
-
+    @commands.guildowner()
     @commands.command()
-    async def almanaximage(self, ctx):
-        """Generate and send the Almanax image on demand."""
-        image = await self.generate_image()
-        if image:
-            now = datetime.datetime.utcnow()
-            almanax_role = discord.utils.get(ctx.guild.roles, name="Almanax")
+    async def almanaxchannel(self, ctx, channel: discord.TextChannel):
+        """
+        Set the channel where Almanax messages will be sent.
+        """
+        await self.config.target_channel.set(channel.id)
+        self.target_channel = channel.id
 
-            if almanax_role:
-                await ctx.send(f"{almanax_role.mention} {now.date()}")
-            else:
-                await ctx.send("The 'Almanax' role does not exist.")
+        # Translation dictionary
+        translations = {
+            "en": "The channel {channel} has been set for Almanax messages.",
+            "es": "El canal {channel} ha sido configurado para mensajes del Almanax.",
+            "fr": "Le canal {channel} a été défini pour les messages de l'Almanax.",
+            "de": "Der Kanal {channel} wurde für Almanax-Nachrichten festgelegt.",
+            "pt": "O canal {channel} foi definido para mensagens do Almanax."
+        }
 
-            await ctx.send(file=discord.File(image, "almanax_image.png"))
-        else:
-            await ctx.send("An error occurred while generating the image.")
+        # Get the translation and send the message
+        message = translations.get(self.selected_language, translations["en"]).format(channel=channel.mention)
+        await ctx.send(message)
 
-    async def generate_image(self):
-        """Generate the Almanax image by scraping the webpage."""
-        url = "https://www.krosmoz.com/es/almanax"
-        script_dir = os.path.dirname(os.path.abspath(__file__))
+    @commands.admin()
+    @commands.command()
+    async def almanaxwarning(self, ctx, hours: int):
+        """
+        Set how many hours in advance to warn users about the Almanax closing.
+        """
+        if hours < 0:
+            await ctx.send("Hours must be a positive number.")  # No need for i18n here
+            return
 
-        # Set options for headless Chrome
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument(
-            "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        )
-        chrome_options.add_argument("--high-dpi-support=1")
+        await self.config.warning_hours.set(hours)
+        self.warning_hours = hours
 
-        # Initialize WebDriver
-        driver = webdriver.Chrome(options=chrome_options)
+        # Translation dictionary
+        translations = {
+            "en": "Warning set for {hours} hour(s) before Almanax closes.",
+            "es": "Advertencia configurada para {hours} hora(s) antes de que cierre el Almanax.",
+            "fr": "Avertissement configuré pour {hours} heure(s) avant la fermeture de l'Almanax.",
+            "de": "Warnung eingestellt für {hours} Stunde(n) bevor der Almanax schließt.",
+            "pt": "Aviso definido para {hours} hora(s) antes do fechamento do Almanax."
+        }
 
+        # Get the translation and send the message
+        message = translations.get(self.selected_language, translations["en"]).format(hours=hours)
+        await ctx.send(message)
+        
+    @commands.command()
+    async def almanax(self, ctx, date: str):
+        """
+        Fetch the Almanax data for the specified date (yyyy-mm-dd).
+        """
+        # Validate the date format
         try:
-            driver.set_window_size(2560, 1440)
-            driver.get(url)
-            await asyncio.sleep(3)  # Give the page time to load
+            datetime.strptime(date, '%Y-%m-%d')
+        except ValueError:
+            # Translation dictionary for invalid date format error
+            translations = {
+                "en": "Invalid date format. Please use yyyy-mm-dd.",
+                "es": "Formato de fecha inválido. Por favor, use aaaa-mm-dd.",
+                "fr": "Format de date invalide. Veuillez utiliser aaaa-mm-jj.",
+                "de": "Ungültiges Datumsformat. Bitte verwenden Sie jjjj-mm-tt.",
+                "pt": "Formato de data inválido. Por favor, use aaaa-mm-dd."
+            }
+            message = translations.get(self.selected_language, translations["en"])
+            await ctx.send(message)
+            return
 
-            # Close cookies modal
-            try:
-                cookies_button = driver.find_element(
-                    By.CSS_SELECTOR, "button[class*='ak-accept']"
-                )
-                cookies_button.click()
-                await asyncio.sleep(1)  # Wait for modal to close
-            except Exception:
-                pass
+        # Use the shared send_almanax_message method
+        try:
+            await self.send_almanax_message(ctx.channel, date, mention_role=False)
+        except ApiException as e:
+            # Translation dictionary for API error
+            translations = {
+                "en": "Error when fetching Almanax data: {error}",
+                "es": "Error al obtener los datos del Almanax: {error}",
+                "fr": "Erreur lors de la récupération des données de l'Almanax : {error}",
+                "de": "Fehler beim Abrufen der Almanax-Daten: {error}",
+                "pt": "Erro ao buscar os dados do Almanax: {error}"
+            }
+            message = translations.get(self.selected_language, translations["en"]).format(error=e)
+            await ctx.send(message)
 
-            # Close welcome modal
-            try:
-                welcome_modal_button = driver.find_element(
-                    By.CSS_SELECTOR, "a.btn_close"
-                )
-                welcome_modal_button.click()
-                await asyncio.sleep(1)  # Wait for modal to close
-            except Exception:
-                pass
+    @tasks.loop(seconds=60)
+    async def almanax_loop(self):
+        """Send the Almanax message daily at midnight (UTC+1)."""
+        now = datetime.now(timezone.utc) + timedelta(hours=1)  # Adjust UTC to UTC+1 (France)
+        if now.hour == 0 and now.minute == 0:  # Check if it's midnight in UTC+1
+            if not self.target_channel:
+                return  # Skip if no target channel is set
 
-            # Locate the div element by ID
-            achievement_div = driver.find_element(By.ID, "achievement_dofus")
+            # Get the channel object
+            channel = self.bot.get_channel(self.target_channel)
+            if not channel:
+                print(f"Error: Target channel with ID {self.target_channel} not found.")
+                return
 
-            # Get the location and size of the div
-            location = achievement_div.location
-            size = achievement_div.size
+            # Call send_almanax_message with both channel and date
+            await self.send_almanax_message(channel, now.strftime('%Y-%m-%d'))
 
-            # Calculate the crop region based on the div's location and size
-            crop_region = (
-                location["x"],  # left
-                location["y"],  # top
-                location["x"] + size["width"],  # right
-                location["y"] + size["height"],  # bottom
+
+    @tasks.loop(seconds=60)
+    async def warning_loop(self):
+        """Send a warning message before the Almanax closes."""
+        now = datetime.now(timezone.utc) + timedelta(hours=1)  # Adjust UTC to UTC+1 (France)
+        closing_time = now.replace(hour=23, minute=59, second=0, microsecond=0)  # Almanax closes at 23:59
+        warning_time = closing_time - timedelta(hours=self.warning_hours)
+
+        if now >= warning_time and now < warning_time + timedelta(minutes=1):  # Trigger warning
+            await self.send_almanax_warning_message(now.strftime('%Y-%m-%d'))
+
+    async def send_almanax_message(self, channel, date: str, mention_role: bool = True):
+        """
+        Shared method to send an Almanax message for a given date.
+        """
+        if not channel:
+            return
+
+        # Fetch Almanax data
+        with dofusdude.ApiClient(self.configuration) as api_client:
+            api_instance = dofusdude.AlmanaxApi(api_client)
+            language = self.selected_language
+
+            api_response = api_instance.get_almanax_date(language, date)
+            bonus_description = api_response.bonus.description
+            bonus_type = api_response.bonus.type.name
+            tribute_name = api_response.tribute.item.name
+            tribute_quantity = api_response.tribute.quantity
+            tribute_image_url = api_response.tribute.item.image_urls.sd
+            reward_kamas = api_response.reward_kamas
+
+            # Create the embed
+            embed = discord.Embed(
+                title=f"Almanax for {date}",
+                color=discord.Color.blue()
             )
+            embed.add_field(name=f"💫 {bonus_type}", value=bonus_description, inline=False)
+            embed.add_field(name="🎁 Tribute", value=f"{tribute_quantity} {tribute_name}", inline=True)
+            embed.add_field(name="💰 Reward Kamas", value=f"{reward_kamas:,}", inline=True)
+            embed.set_thumbnail(url=tribute_image_url)
 
-            # Save the full screenshot
-            image_path = os.path.join(script_dir, self.image_filename)
-            driver.save_screenshot(image_path)
+            # Send the message
+            if mention_role and self.almanax_role:
+                role = discord.utils.get(channel.guild.roles, name=self.almanax_role)
+                if role:
+                    await channel.send(f"{role.mention}", embed=embed)
+                    return
+            await channel.send(embed=embed)
 
-            # Open the full image and crop it
-            full_image = Image.open(image_path)
-            cropped_image = full_image.crop(crop_region)
+    async def send_almanax_warning_message(self, date: str):
+        """Send the warning message for the Almanax closing with i18n support."""
+        if not self.target_channel:
+            return
 
-            # Save the cropped image to BytesIO
-            image_bytes = BytesIO()
-            cropped_image.save(image_bytes, format="PNG")
-            image_bytes.seek(0)
+        # Translation dictionary
+        translations = {
+            "en": "⚠️ The Almanax will close in {hours} hour(s). Complete it soon!",
+            "es": "⚠️ El Almanax cerrará en {hours} hora(s). ¡Complétalo pronto!",
+            "fr": "⚠️ L'Almanax fermera dans {hours} heure(s). Terminez-le bientôt !",
+            "de": "⚠️ Der Almanax schließt in {hours} Stunde(n). Beenden Sie ihn bald!",
+            "pt": "⚠️ O Almanax fechará em {hours} hora(s). Conclua em breve!"
+        }
 
-            os.remove(image_path)  # Clean up the temporary image file
-            return image_bytes
+        # Get the translation for the selected language or default to English
+        warning_message = translations.get(self.selected_language, translations["en"]).format(hours=self.warning_hours)
 
-        except Exception as e:
-            print(f"An error occurred while generating the image: {e}")
-            return None
-        finally:
-            driver.quit()
+        # Send the warning message
+        channel = self.bot.get_channel(self.target_channel)
+        if channel:
+            if self.almanax_role:
+                role = discord.utils.get(channel.guild.roles, name=self.almanax_role)
+                if role:
+                    await channel.send(f"{role.mention} {warning_message}")
+                else:
+                    await channel.send(warning_message)
+            else:
+                await channel.send(warning_message)
 
+    @almanax_loop.before_loop
+    @warning_loop.before_loop
+    async def before_loops(self):
+        """Wait until the bot is ready before starting the loops."""
+        await self.bot.wait_until_ready()
 
-# Setup the cog
-async def setup(bot):
-    await bot.add_cog(DofusAlmanax(bot))
+# Setup function to add the cog
+def setup(bot):
+    bot.add_cog(Dofusalmanax(bot))
