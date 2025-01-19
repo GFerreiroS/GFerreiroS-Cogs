@@ -34,7 +34,7 @@ class Dofusearch(commands.Cog):
         self.configuration = dofusdude.Configuration(
             host="https://api.dofusdu.de"
         )
-        self.config = Config.get_conf(self, identifier=1234567890, force_registration=True)
+        self.config = Config.get_conf(self, identifier=47294758274, force_registration=True)
         self.config.register_global(selected_language="es")  # Default to 'es'
         self.selected_language = "es"  # Default value
 
