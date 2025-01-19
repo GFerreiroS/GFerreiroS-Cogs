@@ -1,3 +1,3 @@
 discord.py==2.4.0
-Pillow==11.1.0
-selenium==4.27.1
+dofusdude @ git+https://github.com/dofusdude/dofusdude-py.git@ef53bbda0eff5d1bb546d168a87ad44af8cecf2f
+i18nice==0.15.5

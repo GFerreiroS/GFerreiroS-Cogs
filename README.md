@@ -5,11 +5,9 @@ This is a repository for my own Discord Bot
 ### Dofusalmanax
 You will need to install this dependencies:
 ```
-pip install selenium
-pip install pillow
+pip install discord.py
+pip install dofusdude
 ```
-And you will need to install Google Chrome.
-Only tested in Linux
 
 ### Dofusearch
 You will need to install this dependencies:
