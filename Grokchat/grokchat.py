@@ -95,13 +95,15 @@ class Grokchat(commands.Cog):
         )
 
         try:
-            completion = self.client.chat.completions.create(
-                model="grok-2-latest",
-                messages=[
-                    {"role": "system", "content": f"{current_context}"},
-                    {"role": "user", "content": f"{userText}"},
-                ],
-            )
+            # Show the typing indicator while waiting for the API response
+            async with ctx.typing():
+                completion = self.client.chat.completions.create(
+                    model="grok-2-latest",
+                    messages=[
+                        {"role": "system", "content": f"{current_context}"},
+                        {"role": "user", "content": f"{userText}"},
+                    ],
+                )
             await ctx.send(completion.choices[0].message.content)
         except Exception as e:
             await ctx.send(f"An error occurred: {e}")
@@ -128,13 +130,15 @@ class Grokchat(commands.Cog):
                 return  # No API key, silently ignore
 
             try:
-                completion = self.client.chat.completions.create(
-                    model="grok-2-latest",
-                    messages=[
-                        {"role": "system", "content": f"{await self.config.bully_context()}"},
-                        {"role": "user", "content": f"{message.content}"},
-                    ],
-                )
+                # Show typing indicator
+                async with message.channel.typing():
+                    completion = self.client.chat.completions.create(
+                        model="grok-2-latest",
+                        messages=[
+                            {"role": "system", "content": f"{await self.config.bully_context()}"},
+                            {"role": "user", "content": f"{message.content}"},
+                        ],
+                    )
                 await message.channel.send(completion.choices[0].message.content)
             except Exception as e:
                 await message.channel.send(f"An error occurred: {e}")
