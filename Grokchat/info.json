@@ -1,0 +1,7 @@
+{
+    "author": ["GFerreiroS"],
+    "description": "Simple cog for chatting with Grok.",
+    "install_msg": "Thank you for installing Grokchat!",
+    "short": "Grok chat",
+    "tags": ["grok", "chat", "funny"]
+}
