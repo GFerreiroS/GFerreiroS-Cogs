@@ -107,6 +107,27 @@ class Grokchat(commands.Cog):
             await ctx.send(completion.choices[0].message.content)
         except Exception as e:
             await ctx.send(f"An error occurred: {e}")
+            
+    @commands.command()
+    async def grokimage(self, ctx, *, userText: str):
+        """Chat with Grok."""
+        if not self.client:
+            await self.initialize_client()
+
+        if not self.client:
+            await ctx.send("API key is not set. Use `!setapikey` to set it.")
+            return
+
+        try:
+            # Show the typing indicator while waiting for the API response
+            async with ctx.typing():
+                response = self.client.images.generate(
+                    model="grok-2-image",\
+                    prompt=f"{userText}",
+                )
+            await ctx.send(response.data[0].url)
+        except Exception as e:
+            await ctx.send(f"An error occurred: {e}")
 
     async def on_message(self, message: discord.Message):
         """Respond automatically to bullied user's messages."""
