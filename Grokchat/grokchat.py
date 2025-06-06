@@ -8,7 +8,7 @@ class Grokchat(commands.Cog):
     """Simple cog for chatting with Grok."""
 
     DEBUG = False
-    
+
     def __init__(self, bot: Red):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=29384703)
@@ -23,7 +23,7 @@ class Grokchat(commands.Cog):
         }
         self.client = None
         self.bot.add_listener(self.on_message, "on_message")
-    
+
     async def initialize_client(self):
         """Initialize the OpenAI client using the stored API key."""
         api_key = await self.config.api_key()
@@ -32,7 +32,7 @@ class Grokchat(commands.Cog):
                 api_key=api_key,
                 base_url="https://api.x.ai/v1",
             )
-            
+
     @commands.guildowner()
     @commands.command()
     async def grokapikey(self, ctx, *, api_key: str):
@@ -46,7 +46,7 @@ class Grokchat(commands.Cog):
         self.setcontext = userContext
         await ctx.send("Context added.")
         return
-    
+
     @commands.command()
     async def grokbullycontext(self, ctx, *, bullyContext: str):
         """Set a custom context for bullying a specific user."""
@@ -75,7 +75,7 @@ class Grokchat(commands.Cog):
             await ctx.send(f"{target_user.name} has been set as the target for bullying.")
         else:
             await ctx.send("User not found. Please provide a valid username or ID.")
-        
+
     @commands.command()
     async def grokchat(self, ctx, *, userText: str):
         """Chat with Grok."""
@@ -107,7 +107,7 @@ class Grokchat(commands.Cog):
             await ctx.send(completion.choices[0].message.content)
         except Exception as e:
             await ctx.send(f"An error occurred: {e}")
-            
+
     @commands.command()
     async def grokimage(self, ctx, *, userText: str):
         """Chat with Grok."""
@@ -154,7 +154,7 @@ class Grokchat(commands.Cog):
                 # Show typing indicator
                 async with message.channel.typing():
                     completion = self.client.chat.completions.create(
-                        model="grok-2-latest",
+                        model="grok-3-latest",
                         messages=[
                             {"role": "system", "content": f"{await self.config.bully_context()}"},
                             {"role": "user", "content": f"{message.content}"},
@@ -168,7 +168,7 @@ class Grokchat(commands.Cog):
 
         # Allow other cogs and commands to process non-bullied user messages
         await self.bot.process_commands(message)
-                
+
     async def cog_unload(self):
         self.bot.remove_listener(self.on_message, "on_message")
         pass
