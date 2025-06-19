@@ -1,0 +1,15 @@
+[Unit]
+Description=Minecraft Server
+After=network.target
+
+[Service]
+User=minecraft
+Group=minecraft
+WorkingDirectory=/home/minecraft/server
+ExecStart=/usr/bin/screen -DmS minecraft /home/minecraft/server/run-minecraft.sh
+ExecStop=/usr/bin/screen -S minecraft -p 0 -X stuff "stop$(printf '\r')"
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
