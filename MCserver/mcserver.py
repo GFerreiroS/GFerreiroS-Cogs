@@ -2,7 +2,6 @@ import asyncio
 import json
 import os
 import pathlib
-import pwd
 import re
 import shutil
 import subprocess
@@ -131,6 +130,16 @@ class MCserver(commands.Cog):
                 f"❌ A server named '{server_name}' already exists. Operation aborted."
             )
 
+        eula_msg = await self._prompt(
+            ctx,
+            "Do you accept the Minecraft EULA? See https://account.mojang.com/documents/minecraft_eula (yes/no)",
+            check,
+        )
+        if not eula_msg or eula_msg.content.lower() not in ("yes", "y"):
+            return await ctx.send("❌ You must accept the EULA. Aborting.")
+        # Write eula.txt
+        (base_dir / "eula.txt").write_text("eula=true")
+
         # Default options prompt
         resp = await self._prompt(ctx, "Will you use default options? (yes/no)", check)
         if not resp:
@@ -170,16 +179,6 @@ class MCserver(commands.Cog):
             version = ver_msg.content.strip()
             if version not in versions and version.lower() != "latest":
                 return await ctx.send("❌ Invalid version selected. Operation aborted.")
-
-            eula_msg = await self._prompt(
-                ctx,
-                "Do you accept the Minecraft EULA? See https://account.mojang.com/documents/minecraft_eula (yes/no)",
-                check,
-            )
-            if not eula_msg or eula_msg.content.lower() not in ("yes", "y"):
-                return await ctx.send("❌ You must accept the EULA. Aborting.")
-            # Write eula.txt
-            (base_dir / "eula.txt").write_text("eula=true")
 
             # Ask for custom server.properties
             sample_path = pathlib.Path(__file__).parent / "assets" / "server.properties"
@@ -376,167 +375,87 @@ class MCserver(commands.Cog):
             # 9) Generate run script
             run_choice = await self._prompt(
                 ctx,
-                "Would you like to generate a start script (run-minecraft.sh)? (yes/no)",
+                "Would you like to generate a monitor‐style start script (run-minecraft.sh)? (yes/no)",
                 check,
             )
             if run_choice and run_choice.content.strip().lower() in ("yes", "y"):
-                script = f"""
-                #!/usr/bin/env bash
-    
+                script = f"""#!/usr/bin/env bash
                 set -euo pipefail
                 
-                JAR_FILE=\"server.jar\"
-                MIN_RAM=\"{min_ram}\"
-                MAX_RAM=\"{max_ram}\"
-                JAVA_FLAGS=\"{flags}\" 
+                JAR_FILE="server.jar"
+                MIN_RAM="{min_ram}"
+                MAX_RAM="{max_ram}"
+                JAVA_FLAGS="{flags}"
+                SERVER_NAME="{server_name}"
                 
-                if [[ ! \"$MIN_RAM\" =~ ^[0-9]+[GM]$ ]]; then
-                echo \"ERROR: XMS ('$MIN_RAM') must be a number ending in 'M' or 'G'.\" >&2
-                exit 1
-                fi
-                if [[ ! \"$MAX_RAM\" =~ ^[0-9]+[GM]$ ]]; then
-                echo \"ERROR: XMX ('$MAX_RAM') must be a number ending in 'M' or 'G'.\" >&2
-                exit 1
+                while true; do
+                # if the server isn’t running, restart it
+                if ! pgrep -f "$JAR_FILE nogui" >/dev/null; then
+                    echo "$(date): server down, restarting…" >> monitor.log
+                
+                    # validate memory syntax
+                    if [[ ! "$MIN_RAM" =~ ^[0-9]+[GM]$ ]]; then
+                    echo "ERROR: XMS ('$MIN_RAM') must be a number ending in 'M' or 'G'." >&2
+                    exit 1
+                    fi
+                    if [[ ! "$MAX_RAM" =~ ^[0-9]+[GM]$ ]]; then
+                    echo "ERROR: XMX ('$MAX_RAM') must be a number ending in 'M' or 'G'." >&2
+                    exit 1
+                    fi
+                
+                    # ensure JAR exists
+                    if [ ! -f "$JAR_FILE" ]; then
+                    echo "ERROR: Could not find jar file '$JAR_FILE'." >&2
+                    exit 1
+                    fi
+                
+                    # ensure java is available
+                    if ! command -v java >/dev/null 2>&1; then
+                    echo "ERROR: 'java' not found. Install Java JRE/JDK and try again." >&2
+                    exit 1
+                    fi
+                
+                    # launch inside screen
+                    screen -DmS minecraft-"$SERVER_NAME" \\
+                    java -Xms"$MIN_RAM" -Xmx"$MAX_RAM" $JAVA_FLAGS \\
+                    -jar "$JAR_FILE" nogui
                 fi
                 
-                if [ ! -f \"$JAR_FILE\" ]; then
-                echo \"ERROR: Could not find jar file '$JAR_FILE'.\" >&2
-                exit 1
-                fi
-                
-                if ! command -v java >/dev/null 2>&1; then
-                echo \"ERROR: 'java' command not found. Install Java JRE/JDK and try again.\" >&2
-                exit 1
-                fi
-                
-                echo \"Starting Minecraft server\"
-                exec java -Xms"$MIN_RAM" -Xmx"$MAX_RAM" $JAVA_FLAGS -jar "$JAR_FILE" nogui
+                # wait before checking again
+                sleep 60
+                done
                 """
                 script_path = base_dir / "run-minecraft.sh"
                 script_path.write_text(script)
-                await ctx.send(f"✅ Generated start script at `{script_path}`.")
+                script_path.chmod(0o755)
+                skip_script = False
+                await ctx.send(f"✅ Generated monitor script at `{script_path}`.")
             else:
+                skip_script = True
                 await ctx.send("ℹ️ Skipping start script generation.")
 
-            # 11) Service installation
-            svc = await self._prompt(
-                ctx,
-                "Would you like to install a screen‐based service for this server? (yes/no)",
-                check,
-            )
-            if svc and svc.content.strip().lower() in ("yes", "y"):
-                # 11a) Require `screen` to be already installed
-                if not shutil.which("screen"):
-                    # detect distro for install hint
-                    distro = {}
-                    with open("/etc/os-release") as f:
-                        for line in f:
-                            if "=" in line:
-                                k, v = line.strip().split("=", 1)
-                                distro[k] = v.strip('"')
-                    dist_id = distro.get("ID", "").lower()
-                    install_cmd = None
-                    if dist_id in ("ubuntu", "debian"):
-                        install_cmd = "sudo apt-get install -y screen"
-                    elif dist_id == "fedora":
-                        install_cmd = "sudo dnf install -y screen"
-                    elif dist_id in ("rhel", "centos"):
-                        install_cmd = "sudo yum install -y screen"
-                    elif dist_id in ("arch", "cachyos"):
-                        install_cmd = "sudo pacman -S --noconfirm screen"
-                    elif dist_id in ("opensuse", "sles"):
-                        install_cmd = "sudo zypper install -y screen"
-                    elif dist_id == "alpine":
-                        install_cmd = "sudo apk add screen"
-                    elif dist_id == "gentoo":
-                        install_cmd = "sudo emerge --ask screen"
-
-                    if install_cmd:
+            if not skip_script:
+                start_server = await self._prompt(
+                    ctx,
+                    "Do we start the server now? (yes/no)",
+                    check,
+                )
+                if start_server and start_server.content.strip().lower() in (
+                    "yes",
+                    "y",
+                ):
+                    # Start the server using the run script
+                    run_script = base_dir / "run-minecraft.sh"
+                    if not run_script.exists():
                         return await ctx.send(
-                            "❌ `screen` is not installed. Please install it with:\n"
-                            f"```bash\n{install_cmd}\n```"
+                            "❌ Run script not found. Cannot start server. Aborting."
                         )
-                    else:
-                        return await ctx.send(
-                            "❌ `screen` is not installed and I don't know your distro. "
-                            "Please install `screen` manually and rerun this command."
+                    try:
+                        await ctx.send(
+                            f"✅ Server started in screen session: `{server_name}`."
                         )
-                # 11b) Detect init system and install service
-                current_user = pwd.getpwuid(os.geteuid()).pw_name
-                assets = pathlib.Path(__file__).parent / "assets"
-                if shutil.which("systemctl"):
-                    # systemd
-                    tmpl = (assets / "service_systemd").read_text()
-                    content = (
-                        tmpl.replace("User=minecraft", f"User={current_user}")
-                        .replace("Group=minecraft", f"Group={current_user}")
-                        .replace(
-                            "WorkingDirectory=/home/minecraft/server",
-                            f"WorkingDirectory={base_dir}",
-                        )
-                    )
-                    dst = (
-                        pathlib.Path("/etc/systemd/system")
-                        / f"minecraft-{server_name}.service"
-                    )
-                    dst.write_text(content)
-                    subprocess.run(["sudo", "systemctl", "daemon-reload"], check=False)
-                    subprocess.run(
-                        ["sudo", "systemctl", "enable", f"minecraft-{server_name}"],
-                        check=False,
-                    )
-                    await ctx.send(
-                        f"✅ Systemd service installed as `minecraft-{server_name}.service`."
-                    )
-                elif shutil.which("rc-service") or shutil.which("openrc-run"):
-                    # OpenRC
-                    tmpl = (assets / "service_openrc").read_text()
-                    content = tmpl.replace(
-                        'command_user="{$USER}:{$USER}"',
-                        f'command_user="{current_user}:{current_user}"',
-                    ).replace(
-                        "/home/minecraft/server/run-minecraft.sh",
-                        str(base_dir / "run-minecraft.sh"),
-                    )
-                    dst = pathlib.Path("/etc/init.d") / f"minecraft-{server_name}"
-                    dst.write_text(content)
-                    subprocess.run(["sudo", "chmod", "+x", str(dst)], check=False)
-                    subprocess.run(
-                        [
-                            "sudo",
-                            "rc-update",
-                            "add",
-                            f"minecraft-{server_name}",
-                            "default",
-                        ],
-                        check=False,
-                    )
-                    await ctx.send(
-                        f"✅ OpenRC service installed as `minecraft-{server_name}`."
-                    )
-                elif shutil.which("service"):
-                    # SysVinit
-                    tmpl = (assets / "service_sysvinit").read_text()
-                    content = tmpl.replace(
-                        'MINECRAFT_USER="$USER"', f'MINECRAFT_USER="{current_user}"'
-                    ).replace(
-                        'MINECRAFT_HOME="/home/minecraft/server"',
-                        f'MINECRAFT_HOME="{base_dir}"',
-                    )
-                    dst = pathlib.Path("/etc/init.d") / f"minecraft-{server_name}"
-                    dst.write_text(content)
-                    subprocess.run(["sudo", "chmod", "+x", str(dst)], check=False)
-                    subprocess.run(
-                        ["sudo", "update-rc.d", f"minecraft-{server_name}", "defaults"],
-                        check=False,
-                    )
-                    await ctx.send(
-                        f"✅ SysVinit service installed as `minecraft-{server_name}`."
-                    )
-                else:
-                    await ctx.send("⚠️ Unsupported init system. Skipping service setup.")
-            else:
-                await ctx.send("ℹ️ Skipping service installation.")
+                    except subprocess.CalledProcessError as e:
+                        return await ctx.send(f"❌ Failed to start server: {e}")
 
             await ctx.send(
                 f"Selected launcher: **{launcher}**, version: **{version}**. "
