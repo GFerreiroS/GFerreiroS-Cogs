@@ -10,14 +10,25 @@ class BaseDownloader(abc.ABC):
     base_dir = pathlib.Path("servers")
 
     @abc.abstractmethod
-    def build_url(self, version: str) -> str:
+    async def build_url(self, version: str) -> str:
         """Return the download URL for this launcher + version."""
         ...
 
-    async def fetch(self, version: str) -> pathlib.Path:
-        """Download the JAR to base_dir/launcher/version/server.jar."""
-        url = self.build_url(version)
-        dest = self.base_dir / self.__class__.__name__.lower() / version
+    async def fetch(
+        self,
+        version: str,
+        *,
+        dest_dir: pathlib.Path | None = None,
+    ) -> pathlib.Path:
+        """
+        Download the JAR into `dest_dir/server.jar` if given,
+        otherwise into base_dir/launcher/version/server.jar.
+        """
+        url = await self.build_url(version)
+        if dest_dir is None:
+            dest = self.base_dir / self.__class__.__name__.lower() / version
+        else:
+            dest = dest_dir
         dest.mkdir(parents=True, exist_ok=True)
         jar_path = dest / "server.jar"
 

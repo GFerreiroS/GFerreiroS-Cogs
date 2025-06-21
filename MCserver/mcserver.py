@@ -2,8 +2,10 @@ import asyncio
 import json
 import os
 import pathlib
+import platform
 import re
 import shutil
+import socket
 import subprocess
 
 import discord
@@ -12,6 +14,7 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
+from .defaults import create_default_server
 from .downloaders import DOWNLOADERS, get_downloader
 from .validator import validate_properties
 
@@ -21,6 +24,26 @@ def parse_memory(input_str):
     if not match:
         return None
     return match.group(1) + match.group(2)
+
+
+def find_available_port(start: int = 25565, max_port: int = 65535) -> int:
+    for port in range(start, max_port + 1):
+        # try both IPv4 and IPv6
+        for family in (socket.AF_INET, socket.AF_INET6):
+            with socket.socket(family, socket.SOCK_STREAM) as sock:
+                # allow immediate reuse
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                try:
+                    sock.bind(("", port))
+                except OSError:
+                    break  # this family is busy → try next family or port
+        else:
+            # if neither family failed, port is free
+            return port
+    raise RuntimeError(f"No available port found between {start}–{max_port}")
+
+
+port = find_available_port(25565)
 
 
 class MCserver(commands.Cog):
@@ -73,6 +96,13 @@ class MCserver(commands.Cog):
     async def createmcserver(self, ctx: commands.Context):
         """Creates a new Minecraft server via interactive prompts."""
         guild_conf = await self.config.guild(ctx.guild).all()
+
+        os_name = platform.system()
+        if os_name != "Linux":
+            return await ctx.send(
+                f"❌ Unsupported OS `{os_name}` detected. Only Linux is supported."
+            )
+
         # Check Java installation
         java_exec = shutil.which("java")
         if not java_exec:
@@ -164,8 +194,13 @@ class MCserver(commands.Cog):
             if launcher not in self.LAUNCHERS:
                 return await ctx.send("❌ Invalid launcher. Operation aborted.")
 
+            # fetch available versions as before…
             await ctx.send("Fetching available versions...")
-            versions = await self._get_available_versions(launcher)
+            downloader = get_downloader(launcher)()
+            if hasattr(downloader, "get_versions"):
+                versions = await downloader.get_versions()
+            else:
+                versions = await self._get_available_versions(launcher)
             version_list = ", ".join(versions)
 
             ver_msg = await self._prompt(
@@ -178,6 +213,17 @@ class MCserver(commands.Cog):
             version = ver_msg.content.strip()
             if version not in versions and version.lower() != "latest":
                 return await ctx.send("❌ Invalid version selected. Operation aborted.")
+
+            # Download the chosen server JAR directly into our new server folder
+            await ctx.send(
+                f"📦 Downloading **{launcher}** server JAR (version `{version}`)…"
+            )
+            try:
+                # first download into temp location
+                target_jar = await downloader.fetch(version, dest_dir=base_dir)
+            except Exception as e:
+                return await ctx.send(f"❌ Failed to download JAR: {e}")
+            await ctx.send(f"✅ Download complete: `{target_jar}`")
 
             # Ask for custom server.properties
             sample_path = pathlib.Path(__file__).parent / "assets" / "server.properties"
@@ -212,6 +258,20 @@ class MCserver(commands.Cog):
                 return await ctx.send("❌ No file provided. Aborting.")
             # Write server.properties
             (base_dir / "server.properties").write_bytes(props_data)
+
+            prop_path = base_dir / "server.properties"
+            lines = prop_path.read_text().splitlines()
+            new_lines = []
+            for line in lines:
+                if line.startswith("server-port="):
+                    new_lines.append(f"server-port={port}")
+                elif line.startswith("query.port="):
+                    new_lines.append(f"query.port={port}")
+                else:
+                    new_lines.append(line)
+
+            prop_path.write_text("\n".join(new_lines) + "\n")
+            await ctx.send(f"🔌 Port configured: `{port}`")
 
             # 6) whitelist flag check
             lines = props_data.decode("utf-8").splitlines()
@@ -379,55 +439,75 @@ class MCserver(commands.Cog):
             )
             if run_choice and run_choice.content.strip().lower() in ("yes", "y"):
                 script = f"""#!/usr/bin/env bash
-                set -euo pipefail
-                
-                JAR_FILE="server.jar"
-                MIN_RAM="{min_ram}"
-                MAX_RAM="{max_ram}"
-                JAVA_FLAGS="{flags}"
-                SERVER_NAME="{server_name}"
-                
-                while true; do
-                # if the server isn’t running, restart it
-                if ! pgrep -f "$JAR_FILE nogui" >/dev/null; then
-                    echo "$(date): server down, restarting…" >> monitor.log
-                
-                    # validate memory syntax
-                    if [[ ! "$MIN_RAM" =~ ^[0-9]+[GM]$ ]]; then
-                    echo "ERROR: XMS ('$MIN_RAM') must be a number ending in 'M' or 'G'." >&2
-                    exit 1
-                    fi
-                    if [[ ! "$MAX_RAM" =~ ^[0-9]+[GM]$ ]]; then
-                    echo "ERROR: XMX ('$MAX_RAM') must be a number ending in 'M' or 'G'." >&2
-                    exit 1
-                    fi
-                
-                    # ensure JAR exists
-                    if [ ! -f "$JAR_FILE" ]; then
-                    echo "ERROR: Could not find jar file '$JAR_FILE'." >&2
-                    exit 1
-                    fi
-                
-                    # ensure java is available
-                    if ! command -v java >/dev/null 2>&1; then
-                    echo "ERROR: 'java' not found. Install Java JRE/JDK and try again." >&2
-                    exit 1
-                    fi
-                
-                    # launch inside screen
-                    screen -DmS minecraft-"$SERVER_NAME" \\
-                    java -Xms"$MIN_RAM" -Xmx"$MAX_RAM" $JAVA_FLAGS \\
-                    -jar "$JAR_FILE" nogui
-                fi
-                
-                # wait before checking again
-                sleep 60
-                done
+set -euo pipefail
+
+JAR_FILE="server.jar"
+MIN_RAM="{min_ram}"
+MAX_RAM="{max_ram}"
+JAVA_FLAGS="{flags}"
+SERVER_NAME="{server_name}"
+
+while true; do
+# if the server isn’t running, restart it
+if ! screen -S "$SERVER_NAME" -Q select . >/dev/null 2>&1; then
+    echo "$(date): server down, restarting…" >> monitor.log
+
+    # validate memory syntax
+    if [[ ! "$MIN_RAM" =~ ^[0-9]+[GM]$ ]]; then
+    echo "ERROR: XMS ('$MIN_RAM') must be a number ending in 'M' or 'G'." >&2
+    exit 1
+    fi
+    if [[ ! "$MAX_RAM" =~ ^[0-9]+[GM]$ ]]; then
+    echo "ERROR: XMX ('$MAX_RAM') must be a number ending in 'M' or 'G'." >&2
+    exit 1
+    fi
+
+    # ensure JAR exists
+    if [ ! -f "$JAR_FILE" ]; then
+    echo "ERROR: Could not find jar file '$JAR_FILE'." >&2
+    exit 1
+    fi
+
+    # ensure java is available
+    if ! command -v java >/dev/null 2>&1; then
+    echo "ERROR: 'java' not found. Install Java JRE/JDK and try again." >&2
+    exit 1
+    fi
+
+    # launch inside screen
+    screen -DmS "$SERVER_NAME" \\
+    java -Xms"$MIN_RAM" -Xmx"$MAX_RAM" $JAVA_FLAGS \\
+    -jar "$JAR_FILE" nogui
+fi
+
+# wait before checking again
+sleep 60
+done
                 """
                 script_path = base_dir / "run-minecraft.sh"
                 script_path.write_text(script)
                 script_path.chmod(0o755)
                 await ctx.send(f"✅ Generated monitor script at `{script_path}`.")
+
+                # Now also generate a kill-server.sh
+                kill_script = f"""#!/usr/bin/env bash
+# kill-server.sh: stops Minecraft and the monitor loop
+
+# Name of the screen session
+SCREEN_NAME="{server_name}"
+
+# Send the 'stop' command to the server console
+screen -S "$SCREEN_NAME" -p 0 -X stuff "stop$(printf '\\r')"
+
+# Quit the screen session entirely
+screen -S "$SCREEN_NAME" -X quit
+
+# Kill any running monitor loop
+pkill -f "run-minecraft.sh" || true
+"""
+                kill_path = base_dir / "kill-server.sh"
+                kill_path.write_text(kill_script)
+                kill_path.chmod(0o755)
 
                 start_server = await self._prompt(
                     ctx,
@@ -456,17 +536,15 @@ class MCserver(commands.Cog):
                         return await ctx.send(f"❌ Failed to start server: {e}")
                     else:
                         await ctx.send(
-                            f"✅ Server startup script launched (PID {proc.pid}). "
-                            f"Check your screen session named `minecraft-{server_name}`."
+                            f"Your screen session named `{server_name}`. \n"
+                            f"To check your server console, connect via ssh and use `screen -r {server_name}`"
                         )
                 else:
                     await ctx.send("ℹ️ Skipping start script generation.")
 
-            await ctx.send(
-                f"Selected launcher: **{launcher}**, version: **{version}**. "
-                f"Creating server in `{base_dir}`..."
-            )
-            return await self._create_custom(ctx, base_dir, launcher, version)
+            await ctx.send(f"Server created in `{base_dir}`...")
+            wizard_success = True
+            return
         finally:
             if not wizard_success and created_dir:
                 shutil.rmtree(base_dir, ignore_errors=True)
@@ -540,29 +618,13 @@ class MCserver(commands.Cog):
             shutil.rmtree(base / sub)
         await ctx.send(f"✅ Deleted all servers: {', '.join(names)}.")
 
-    async def _create_with_defaults(
-        self, ctx: commands.Context, base_dir: pathlib.Path
-    ):
-        """Handle server creation using default settings."""
-        # TODO: implement default server creation logic in base_dir
-        await ctx.send(f"[Stub] Default server created at `{base_dir}`.")
+    async def _create_with_defaults(self, ctx, base_dir: pathlib.Path):
+        return await create_default_server(ctx, base_dir)
 
     async def _get_available_versions(self, launcher: str) -> list:
         """Fetch and return a list of available versions for the given launcher."""
         # TODO: use aiohttp to fetch version manifests
         return ["latest"]
-
-    async def _create_custom(
-        self, ctx: commands.Context, base_dir: pathlib.Path, launcher: str, version: str
-    ):
-        """Handle server creation with user-specified launcher and version."""
-        downloader = get_downloader(launcher)()
-        try:
-            jar_path = await downloader.fetch(version)
-        except Exception as e:
-            return await ctx.send(f"Download failed: {e}")
-        # … then write eula.txt, properties, spawn server, etc. …
-        await ctx.send(f"Server JAR saved to `{jar_path}`. Continuing setup…")
 
 
 async def setup(bot: Red):
