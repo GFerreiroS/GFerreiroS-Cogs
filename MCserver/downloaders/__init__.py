@@ -1,3 +1,4 @@
+from .leaf import LeafDownloader
 from .paper import PaperDownloader
 from .purpur import PurpurDownloader
 from .vanilla import VanillaDownloader
@@ -8,7 +9,7 @@ DOWNLOADERS = {
     "vanilla": VanillaDownloader,
     "paper": PaperDownloader,
     "purpur": PurpurDownloader,
-    # …
+    "leaf": LeafDownloader,
 }
 
 
