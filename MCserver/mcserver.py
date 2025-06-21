@@ -102,8 +102,7 @@ class MCserver(commands.Cog):
                         break
             total_gb = round(total_kb / 1024 / 1024, 1)
             avail_gb = round(avail_kb / 1024 / 1024, 1)
-            remain_gb = round(total_gb - avail_gb, 1)
-            ram_info = f"{avail_gb}GB / {total_gb}GB {remain_gb}GB available"
+            ram_info = f"{avail_gb}GB / {total_gb}GB {avail_gb}GB are free"
         except Exception:
             ram_info = "Unknown RAM stats"
 
@@ -287,7 +286,7 @@ class MCserver(commands.Cog):
             # Ask for minimum RAM
             await ctx.send(
                 f"How much minimum RAM would you like? (e.g. '2G' or '512M') Default is {guild_conf.get('min_ram')}."
-                f" You have approximately {remain_gb}GB RAM remaining."
+                f" You have approximately {avail_gb}GB RAM remaining."
             )
             min_msg = await self._prompt(
                 ctx, "Enter minimum RAM or type 'skip' to use default:", check
@@ -308,7 +307,7 @@ class MCserver(commands.Cog):
             # Ask for max RAM
             await ctx.send(
                 f"How much maximum RAM would you like? (e.g. '4G' or '1024M') Default is {guild_conf.get('max_ram')}."
-                f" You have approximately {remain_gb}GB RAM remaining."
+                f" You have approximately {avail_gb}GB RAM remaining."
             )
             max_msg = await self._prompt(
                 ctx, "Enter maximum RAM or type 'skip' to use default:", check
@@ -428,13 +427,8 @@ class MCserver(commands.Cog):
                 script_path = base_dir / "run-minecraft.sh"
                 script_path.write_text(script)
                 script_path.chmod(0o755)
-                skip_script = False
                 await ctx.send(f"✅ Generated monitor script at `{script_path}`.")
-            else:
-                skip_script = True
-                await ctx.send("ℹ️ Skipping start script generation.")
 
-            if not skip_script:
                 start_server = await self._prompt(
                     ctx,
                     "Do we start the server now? (yes/no)",
@@ -444,18 +438,29 @@ class MCserver(commands.Cog):
                     "yes",
                     "y",
                 ):
-                    # Start the server using the run script
                     run_script = base_dir / "run-minecraft.sh"
                     if not run_script.exists():
                         return await ctx.send(
                             "❌ Run script not found. Cannot start server. Aborting."
                         )
                     try:
-                        await ctx.send(
-                            f"✅ Server started in screen session: `{server_name}`."
+                        # Launch the script asynchronously (does not wait for it to finish)
+                        proc = await asyncio.create_subprocess_exec(
+                            "bash",
+                            str(run_script),
+                            cwd=str(base_dir),
+                            stdout=asyncio.subprocess.DEVNULL,
+                            stderr=asyncio.subprocess.DEVNULL,
                         )
-                    except subprocess.CalledProcessError as e:
+                    except Exception as e:
                         return await ctx.send(f"❌ Failed to start server: {e}")
+                    else:
+                        await ctx.send(
+                            f"✅ Server startup script launched (PID {proc.pid}). "
+                            f"Check your screen session named `minecraft-{server_name}`."
+                        )
+                else:
+                    await ctx.send("ℹ️ Skipping start script generation.")
 
             await ctx.send(
                 f"Selected launcher: **{launcher}**, version: **{version}**. "
