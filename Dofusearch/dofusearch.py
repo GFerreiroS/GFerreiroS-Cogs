@@ -8,24 +8,26 @@ from dofusdude.rest import ApiException
 from redbot.core import commands, checks, Config
 
 current_directory = os.path.dirname(os.path.abspath(__file__))
-locales_path = os.path.join(current_directory, 'locales')
+locales_path = os.path.join(current_directory, "locales")
 i18n.load_path.append(locales_path)
-i18n.set('locale', 'es')
+i18n.set("locale", "es")
 i18n.set("file_format", "json")
-i18n.set('filename_format', '{locale}.{format}')
-i18n.set('enable_memoization', True)
+i18n.set("filename_format", "{locale}.{format}")
+i18n.set("enable_memoization", True)
 _ = i18n.t
+
 
 def remove_accents(input_str: str) -> str:
     # Removes all accent/diacritic marks from the given string
     # and returns the normalized version (e.g., "á" -> "a").
-    nf = unicodedata.normalize('NFD', input_str)
-    return ''.join(ch for ch in nf if unicodedata.category(ch) != 'Mn')
+    nf = unicodedata.normalize("NFD", input_str)
+    return "".join(ch for ch in nf if unicodedata.category(ch) != "Mn")
+
 
 class Dofusearch(commands.Cog):
     """
     A cog to fetch item data using the Dofus Dude API.
-    
+
     This cog allows you to search for items, mounts, consumables, equipment, resources, quest items and sets (sets WIP).
     """
 
@@ -34,7 +36,9 @@ class Dofusearch(commands.Cog):
         self.configuration = dofusdude.Configuration(
             host="https://api.dofusdu.de"
         )
-        self.config = Config.get_conf(self, identifier=47294758274, force_registration=True)
+        self.config = Config.get_conf(
+            self, identifier=47294758274, force_registration=True
+        )
         self.config.register_global(selected_language="es")  # Default to 'es'
         self.selected_language = "es"  # Default value
 
@@ -48,14 +52,16 @@ class Dofusearch(commands.Cog):
         """
         Change the search language. Available languages: en, es, fr, de, pt
         """
-        supported_languages = ['en', 'es', 'fr', 'de', 'pt']
+        supported_languages = ["en", "es", "fr", "de", "pt"]
         if language in supported_languages:
             await self.config.selected_language.set(language)
             self.selected_language = language
             await ctx.send(f"Changed language to {language}")
         else:
-            await ctx.send("Language not supported. Supported languages: en, es, fr, de, pt")
-        
+            await ctx.send(
+                "Language not supported. Supported languages: en, es, fr, de, pt"
+            )
+
     @commands.command()
     @commands.cooldown(10, 10, commands.BucketType.guild)
     @commands.max_concurrency(10, commands.BucketType.default)
@@ -69,13 +75,33 @@ class Dofusearch(commands.Cog):
         name = remove_accents(name).lower()
 
         search_methods = [
-            ("MountsApi", "get_mounts_search", "Mounts"),                           # Search logic done
-            ("ConsumablesApi", "get_items_consumables_search", "Consumables"),      # Search logic done
-            ("EquipmentApi", "get_items_equipment_search", "Equipment"),            # Search logic done
-            ("CosmeticsApi", "get_cosmetics_search", "Cosmetics"),                  # Search logic done
-            ("ResourcesApi", "get_items_resource_search", "Resources"),             # Search logic done
-            ("QuestItemsApi", "get_items_quest_search", "QuestItems"),              # Search logic done
-            ("SetsApi", "get_sets_search", "Sets")                                  # TODO
+            ("MountsApi", "get_mounts_search", "Mounts"),  # Search logic done
+            (
+                "ConsumablesApi",
+                "get_items_consumables_search",
+                "Consumables",
+            ),  # Search logic done
+            (
+                "EquipmentApi",
+                "get_items_equipment_search",
+                "Equipment",
+            ),  # Search logic done
+            (
+                "CosmeticsApi",
+                "get_cosmetics_search",
+                "Cosmetics",
+            ),  # Search logic done
+            (
+                "ResourcesApi",
+                "get_items_resource_search",
+                "Resources",
+            ),  # Search logic done
+            (
+                "QuestItemsApi",
+                "get_items_quest_search",
+                "QuestItems",
+            ),  # Search logic done
+            ("SetsApi", "get_sets_search", "Sets"),  # TODO
         ]
 
         results = None
@@ -91,22 +117,30 @@ class Dofusearch(commands.Cog):
                     search_method = getattr(api_instance, method)
 
                     if asyncio.iscoroutinefunction(search_method):
-                        api_response = await search_method(game=game, language=language, query=name)
+                        api_response = await search_method(
+                            game=game, language=language, query=name
+                        )
                     else:
-                        api_response = search_method(game=game, language=language, query=name)
-                    
+                        api_response = search_method(
+                            game=game, language=language, query=name
+                        )
+
                     if isinstance(api_response, list):
                         matching_items = []
                     for item in api_response:
-                        item_name_raw = getattr(item, 'name', '')
-                        item_name_normalized = remove_accents(item_name_raw).lower()
+                        item_name_raw = getattr(item, "name", "")
+                        item_name_normalized = remove_accents(
+                            item_name_raw
+                        ).lower()
                         if item_name_normalized == name:
                             matching_items.append(item)
 
                     # If there are matching items, find the one with the highest level
                     if matching_items:
                         # Sort items by level in descending order and take the first one
-                        highest_level_item = max(matching_items, key=lambda x: getattr(x, 'level', 0))
+                        highest_level_item = max(
+                            matching_items, key=lambda x: getattr(x, "level", 0)
+                        )
                         results = (category, highest_level_item)
                         break
 
@@ -121,29 +155,31 @@ class Dofusearch(commands.Cog):
 
         # Handle other categories (Resources, Consumables, etc.)
         category, matched_item = results
-        ankama_id = getattr(matched_item, 'ankama_id', None)
-    
-        # --------------------------- 
+        ankama_id = getattr(matched_item, "ankama_id", None)
+
+        # ---------------------------
         # IF MOUNTS => BUILD A SPECIAL EMBED
         # ---------------------------
         if category == "Mounts" and ankama_id is not None:
             try:
                 mounts_api = dofusdude.MountsApi(api_client)
                 detailed_mount = mounts_api.get_mounts_single(
-                    game=game,
-                    language=language,
-                    ankama_id=ankama_id
+                    game=game, language=language, ankama_id=ankama_id
                 )
 
                 # Now build an embed
-                mount_name = getattr(detailed_mount, 'name', None)
-                mount_description = getattr(detailed_mount, 'description', None)
-                image_urls = getattr(detailed_mount, 'image_urls', None)
-                image_sd = getattr(image_urls, 'sd', None) if image_urls else None
-                mount_effects = getattr(detailed_mount, 'effects', None)
+                mount_name = getattr(detailed_mount, "name", None)
+                mount_description = getattr(detailed_mount, "description", None)
+                image_urls = getattr(detailed_mount, "image_urls", None)
+                image_sd = (
+                    getattr(image_urls, "sd", None) if image_urls else None
+                )
+                mount_effects = getattr(detailed_mount, "effects", None)
 
                 embed_color = discord.Color.blurple()
-                embed = discord.Embed(title="", description="", color=embed_color)
+                embed = discord.Embed(
+                    title="", description="", color=embed_color
+                )
 
                 # NAME => embed.title if not None
                 if mount_name:
@@ -162,14 +198,14 @@ class Dofusearch(commands.Cog):
                     effect_lines = []
                     for eff in mount_effects:
                         # We only display the "formatted" text
-                        eff_formatted = getattr(eff, 'formatted', None)
+                        eff_formatted = getattr(eff, "formatted", None)
                         if eff_formatted:
                             effect_lines.append(f"- {eff_formatted}")
                     if effect_lines:
                         embed.add_field(
                             name=_("key_words.effects"),
                             value="\n".join(effect_lines),
-                            inline=False
+                            inline=False,
                         )
 
                 await ctx.send(embed=embed)
@@ -178,7 +214,7 @@ class Dofusearch(commands.Cog):
             except ApiException as e:
                 await ctx.send(f"Error al obtener Montura detallado: {e}")
                 return
-    
+
         # ---------------------------
         # If category == "Resources" => get detailed resource & output JSON
         # ---------------------------
@@ -187,25 +223,33 @@ class Dofusearch(commands.Cog):
                 resources_api = dofusdude.ResourcesApi(api_client)
                 # Fetch detailed resource data
                 detailed_resource = resources_api.get_items_resources_single(
-                    game=game,
-                    language=language,
-                    ankama_id=ankama_id
+                    game=game, language=language, ankama_id=ankama_id
                 )
 
                 # Extract relevant fields
-                item_name = getattr(detailed_resource, 'name', None)
-                item_description = getattr(detailed_resource, 'description', None)
-                item_type_obj = getattr(detailed_resource, 'type', None)
-                item_type_name = getattr(item_type_obj, 'name', None) if item_type_obj else None
-                item_level = getattr(detailed_resource, 'level', None)
-                item_pods = getattr(detailed_resource, 'pods', None)
-                image_urls = getattr(detailed_resource, 'image_urls', None)
-                image_sd = getattr(image_urls, 'sd', None) if image_urls else None
-                item_effects = getattr(detailed_resource, 'effects', None)
+                item_name = getattr(detailed_resource, "name", None)
+                item_description = getattr(
+                    detailed_resource, "description", None
+                )
+                item_type_obj = getattr(detailed_resource, "type", None)
+                item_type_name = (
+                    getattr(item_type_obj, "name", None)
+                    if item_type_obj
+                    else None
+                )
+                item_level = getattr(detailed_resource, "level", None)
+                item_pods = getattr(detailed_resource, "pods", None)
+                image_urls = getattr(detailed_resource, "image_urls", None)
+                image_sd = (
+                    getattr(image_urls, "sd", None) if image_urls else None
+                )
+                item_effects = getattr(detailed_resource, "effects", None)
 
                 # Create the embed
                 embed_color = discord.Color.blurple()
-                embed = discord.Embed(title="", description="", color=embed_color)
+                embed = discord.Embed(
+                    title="", description="", color=embed_color
+                )
 
                 # Add title (name)
                 if item_name:
@@ -217,28 +261,40 @@ class Dofusearch(commands.Cog):
 
                 # Add type name
                 if item_type_name:
-                    embed.add_field(name=_("key_words.type"), value=item_type_name, inline=True)
+                    embed.add_field(
+                        name=_("key_words.type"),
+                        value=item_type_name,
+                        inline=True,
+                    )
 
                 # Add level
                 if item_level is not None:
-                    embed.add_field(name=_("key_words.level"), value=str(item_level), inline=True)
+                    embed.add_field(
+                        name=_("key_words.level"),
+                        value=str(item_level),
+                        inline=True,
+                    )
 
                 # Add pods
                 if item_pods is not None:
-                    embed.add_field(name=_("key_words.pods"), value=str(item_pods), inline=True)
+                    embed.add_field(
+                        name=_("key_words.pods"),
+                        value=str(item_pods),
+                        inline=True,
+                    )
 
                 # Add effects
                 if item_effects:
                     effect_lines = []
                     for eff in item_effects:
-                        eff_formatted = getattr(eff, 'formatted', None)
+                        eff_formatted = getattr(eff, "formatted", None)
                         if eff_formatted:
                             effect_lines.append(f"- {eff_formatted}")
                     if effect_lines:
                         embed.add_field(
                             name=_("key_words.effects"),
                             value="\n".join(effect_lines),
-                            inline=False
+                            inline=False,
                         )
 
                 # Add image
@@ -253,7 +309,7 @@ class Dofusearch(commands.Cog):
                 await ctx.send(f"Error al obtener Recurso detallado: {e}")
                 return
 
-        # --------------------------- 
+        # ---------------------------
         # IF CONSUMABLES => BUILD A SPECIAL EMBED
         # ---------------------------
         if category == "Consumables" and ankama_id is not None:
@@ -261,25 +317,33 @@ class Dofusearch(commands.Cog):
                 consumables_api = dofusdude.ConsumablesApi(api_client)
                 # second call for detailed data
                 detailed_item = consumables_api.get_items_consumables_single(
-                    game=game,
-                    language=language,
-                    ankama_id=ankama_id
+                    game=game, language=language, ankama_id=ankama_id
                 )
 
                 # Now build an embed
-                item_name = getattr(detailed_item, 'name', None)
-                item_description = getattr(detailed_item, 'description', None)
-                item_type_obj = getattr(detailed_item, 'type', None)
-                item_type_name = getattr(item_type_obj, 'name', None) if item_type_obj else None
-                item_level = getattr(detailed_item, 'level', None)
-                item_pods = getattr(detailed_item, 'pods', None)  # "weight inside the pocket"
-                image_urls = getattr(detailed_item, 'image_urls', None)
-                image_sd = getattr(image_urls, 'sd', None) if image_urls else None
-                item_effects = getattr(detailed_item, 'effects', None)
-                item_conditions = getattr(detailed_item, 'conditions', None)
+                item_name = getattr(detailed_item, "name", None)
+                item_description = getattr(detailed_item, "description", None)
+                item_type_obj = getattr(detailed_item, "type", None)
+                item_type_name = (
+                    getattr(item_type_obj, "name", None)
+                    if item_type_obj
+                    else None
+                )
+                item_level = getattr(detailed_item, "level", None)
+                item_pods = getattr(
+                    detailed_item, "pods", None
+                )  # "weight inside the pocket"
+                image_urls = getattr(detailed_item, "image_urls", None)
+                image_sd = (
+                    getattr(image_urls, "sd", None) if image_urls else None
+                )
+                item_effects = getattr(detailed_item, "effects", None)
+                item_conditions = getattr(detailed_item, "conditions", None)
 
                 embed_color = discord.Color.blurple()
-                embed = discord.Embed(title="", description="", color=embed_color)
+                embed = discord.Embed(
+                    title="", description="", color=embed_color
+                )
 
                 # NAME => embed.title if not None
                 if item_name:
@@ -291,15 +355,27 @@ class Dofusearch(commands.Cog):
 
                 # TYPE => field
                 if item_type_name:
-                    embed.add_field(name=_("key_words.type"), value=item_type_name, inline=True)
+                    embed.add_field(
+                        name=_("key_words.type"),
+                        value=item_type_name,
+                        inline=True,
+                    )
 
                 # LEVEL => field
                 if item_level is not None:
-                    embed.add_field(name=_("key_words.level"), value=str(item_level), inline=True)
+                    embed.add_field(
+                        name=_("key_words.level"),
+                        value=str(item_level),
+                        inline=True,
+                    )
 
                 # PODS => field
                 if item_pods is not None:
-                    embed.add_field(name=_("key_words.pods"), value=str(item_pods), inline=True)
+                    embed.add_field(
+                        name=_("key_words.pods"),
+                        value=str(item_pods),
+                        inline=True,
+                    )
 
                 # IMAGE => set image
                 if image_sd:
@@ -310,18 +386,18 @@ class Dofusearch(commands.Cog):
                     effect_lines = []
                     for eff in item_effects:
                         # We only display the "formatted" text
-                        eff_formatted = getattr(eff, 'formatted', None)
+                        eff_formatted = getattr(eff, "formatted", None)
                         if eff_formatted:
                             effect_lines.append(f"- {eff_formatted}")
                     if effect_lines:
                         embed.add_field(
                             name=_("key_words.effects"),
                             value="\n".join(effect_lines),
-                            inline=False
+                            inline=False,
                         )
 
                 # CONDITIONS => field if not None
-                # Conditions can be a string or complex object. 
+                # Conditions can be a string or complex object.
                 # If your code has a single condition string, you can do:
                 if item_conditions:
                     # For example, item_conditions might be a dict or an object
@@ -331,7 +407,7 @@ class Dofusearch(commands.Cog):
                     embed.add_field(
                         name=_("key_words.conditions"),
                         value=cond_text,
-                        inline=False
+                        inline=False,
                     )
 
                 await ctx.send(embed=embed)
@@ -349,22 +425,30 @@ class Dofusearch(commands.Cog):
                 quest_items_api = dofusdude.QuestItemsApi(api_client)
                 # Fetch detailed quest item data
                 detailed_quest_item = quest_items_api.get_item_quest_single(
-                    game=game,
-                    language=language,
-                    ankama_id=ankama_id
+                    game=game, language=language, ankama_id=ankama_id
                 )
 
                 # Extract relevant fields
-                item_name = getattr(detailed_quest_item, 'name', "Unknown")
-                item_description = getattr(detailed_quest_item, 'description', None)
-                item_type_obj = getattr(detailed_quest_item, 'type', None)
-                item_type_name = getattr(item_type_obj, 'name', None) if item_type_obj else None
-                item_level = getattr(detailed_quest_item, 'level', None)
-                item_pods = getattr(detailed_quest_item, 'pods', None)
-                image_urls = getattr(detailed_quest_item, 'image_urls', None)
-                image_sd = getattr(image_urls, 'sd', None) if image_urls else None
-                item_effects = getattr(detailed_quest_item, 'effects', None)
-                item_conditions = getattr(detailed_quest_item, 'conditions', None)
+                item_name = getattr(detailed_quest_item, "name", "Unknown")
+                item_description = getattr(
+                    detailed_quest_item, "description", None
+                )
+                item_type_obj = getattr(detailed_quest_item, "type", None)
+                item_type_name = (
+                    getattr(item_type_obj, "name", None)
+                    if item_type_obj
+                    else None
+                )
+                item_level = getattr(detailed_quest_item, "level", None)
+                item_pods = getattr(detailed_quest_item, "pods", None)
+                image_urls = getattr(detailed_quest_item, "image_urls", None)
+                image_sd = (
+                    getattr(image_urls, "sd", None) if image_urls else None
+                )
+                item_effects = getattr(detailed_quest_item, "effects", None)
+                item_conditions = getattr(
+                    detailed_quest_item, "conditions", None
+                )
 
                 # Build the embed
                 embed_color = discord.Color.blurple()
@@ -376,33 +460,53 @@ class Dofusearch(commands.Cog):
 
                 # Add type
                 if item_type_name:
-                    embed.add_field(name=_("key_words.type"), value=item_type_name, inline=True)
+                    embed.add_field(
+                        name=_("key_words.type"),
+                        value=item_type_name,
+                        inline=True,
+                    )
 
                 # Add level
                 if item_level is not None:
-                    embed.add_field(name=_("key_words.level"), value=str(item_level), inline=True)
+                    embed.add_field(
+                        name=_("key_words.level"),
+                        value=str(item_level),
+                        inline=True,
+                    )
 
                 # Add pods
                 if item_pods is not None:
-                    embed.add_field(name=_("key_words.pods"), value=str(item_pods), inline=True)
+                    embed.add_field(
+                        name=_("key_words.pods"),
+                        value=str(item_pods),
+                        inline=True,
+                    )
 
                 # Add effects
                 if item_effects:
                     effect_lines = [
-                        f"- {effect.formatted}" for effect in item_effects if getattr(effect, 'formatted', None)
+                        f"- {effect.formatted}"
+                        for effect in item_effects
+                        if getattr(effect, "formatted", None)
                     ]
                     if effect_lines:
                         embed.add_field(
                             name=_("key_words.effects"),
                             value="\n".join(effect_lines),
-                            inline=False
+                            inline=False,
                         )
 
                 # Add conditions
                 if item_conditions:
                     # Assuming conditions are strings or have a "condition" attribute
-                    conditions_text = getattr(item_conditions, 'condition', None) or str(item_conditions)
-                    embed.add_field(name=_("key_words.conditions"), value=conditions_text, inline=False)
+                    conditions_text = getattr(
+                        item_conditions, "condition", None
+                    ) or str(item_conditions)
+                    embed.add_field(
+                        name=_("key_words.conditions"),
+                        value=conditions_text,
+                        inline=False,
+                    )
 
                 # Add image
                 if image_sd:
@@ -415,8 +519,7 @@ class Dofusearch(commands.Cog):
             except ApiException as e:
                 await ctx.send(f"Error al obtener Misión detallada: {e}")
                 return
-        
-        
+
         cosmetic_types = [
             _("cosmetic_types.wings"),
             _("cosmetic_types.weapon"),
@@ -431,7 +534,7 @@ class Dofusearch(commands.Cog):
             _("cosmetic_types.misc_cosmetics"),
             _("cosmetic_types.living_item"),
             _("cosmetic_types.hat"),
-            _("cosmetic_types.outfit")
+            _("cosmetic_types.outfit"),
         ]
 
         # ---------------------------
@@ -441,39 +544,41 @@ class Dofusearch(commands.Cog):
             try:
                 equipment_api = dofusdude.EquipmentApi(api_client)
                 matched_item = equipment_api.get_items_equipment_single(
-                    game=game,
-                    language=language,
-                    ankama_id=ankama_id
+                    game=game, language=language, ankama_id=ankama_id
                 )
             except ApiException:
                 await ctx.send(f"Error al obtener Equipamiento detallado: {e}")
                 pass
-            
+
         # For all else (including equip with extra info now), we do pagination logic
-        item_name = getattr(matched_item, 'name', "Unknown")
-        item_type_obj = getattr(matched_item, 'type', None)
-        item_type_name = getattr(item_type_obj, 'name', None)
+        item_name = getattr(matched_item, "name", "Unknown")
+        item_type_obj = getattr(matched_item, "type", None)
+        item_type_name = getattr(item_type_obj, "name", None)
 
         if item_type_name in cosmetic_types:
             # Fetch detailed cosmetic data
             try:
                 cosmetics_api = dofusdude.CosmeticsApi(api_client)
                 detailed_cosmetic = cosmetics_api.get_cosmetics_single(
-                    game=game,
-                    language=language,
-                    ankama_id=ankama_id
+                    game=game, language=language, ankama_id=ankama_id
                 )
 
                 # Extract relevant fields
-                item_name = getattr(detailed_cosmetic, 'name', "Desconocido")
-                item_description = getattr(detailed_cosmetic, 'description', None)
-                item_type_obj = getattr(detailed_cosmetic, 'type', None)
-                item_type_name = getattr(item_type_obj, 'name', None)
-                item_pods = getattr(detailed_cosmetic, 'pods', None)
-                image_urls = getattr(detailed_cosmetic, 'image_urls', None)
-                image_sd = getattr(image_urls, 'sd', None) if image_urls else None
-                parent_set = getattr(detailed_cosmetic, 'parent_set', None)
-                parent_set_name = getattr(parent_set, 'name', None) if parent_set else None
+                item_name = getattr(detailed_cosmetic, "name", "Desconocido")
+                item_description = getattr(
+                    detailed_cosmetic, "description", None
+                )
+                item_type_obj = getattr(detailed_cosmetic, "type", None)
+                item_type_name = getattr(item_type_obj, "name", None)
+                item_pods = getattr(detailed_cosmetic, "pods", None)
+                image_urls = getattr(detailed_cosmetic, "image_urls", None)
+                image_sd = (
+                    getattr(image_urls, "sd", None) if image_urls else None
+                )
+                parent_set = getattr(detailed_cosmetic, "parent_set", None)
+                parent_set_name = (
+                    getattr(parent_set, "name", None) if parent_set else None
+                )
 
                 # Build the embed for the cosmetic item
                 embed_color = discord.Color.blurple()
@@ -485,15 +590,27 @@ class Dofusearch(commands.Cog):
 
                 # Add type name
                 if item_type_name:
-                    embed.add_field(name=_("key_words.type"), value=item_type_name, inline=True)
+                    embed.add_field(
+                        name=_("key_words.type"),
+                        value=item_type_name,
+                        inline=True,
+                    )
 
                 # Add pods
                 if item_pods is not None:
-                    embed.add_field(name=_("key_words.pods"), value=str(item_pods), inline=True)
+                    embed.add_field(
+                        name=_("key_words.pods"),
+                        value=str(item_pods),
+                        inline=True,
+                    )
 
                 # Add parent set
                 if parent_set_name:
-                    embed.add_field(name=_("key_words.cosmetic_set"), value=parent_set_name, inline=False)
+                    embed.add_field(
+                        name=_("key_words.cosmetic_set"),
+                        value=parent_set_name,
+                        inline=False,
+                    )
 
                 # Add image
                 if image_sd:
@@ -501,46 +618,58 @@ class Dofusearch(commands.Cog):
 
                 # Send the embed
                 await ctx.send(embed=embed)
-                
+
                 return
 
             except ApiException as e:
                 await ctx.send(f"Error al obtener datos del cosmético: {e}")
                 return
-        
-        item_description = getattr(matched_item, 'description', None) or ""
-        item_level = getattr(matched_item, 'level', None)
-        item_range = getattr(matched_item, 'range', None)
-        item_ap_cost = getattr(matched_item, 'ap_cost', None)
-        item_max_cast = getattr(matched_item, 'max_cast_per_turn', None)
-        item_crit_prob = getattr(matched_item, 'critical_hit_probability', None)
-        item_crit_bonus = getattr(matched_item, 'critical_hit_bonus', None)
-        item_effects = getattr(matched_item, 'effects', None)
-        parent_set = getattr(matched_item, 'parent_set', None)
-        parent_set_name = getattr(parent_set, 'name', None) if parent_set else None
+
+        item_description = getattr(matched_item, "description", None) or ""
+        item_level = getattr(matched_item, "level", None)
+        item_range = getattr(matched_item, "range", None)
+        item_ap_cost = getattr(matched_item, "ap_cost", None)
+        item_max_cast = getattr(matched_item, "max_cast_per_turn", None)
+        item_crit_prob = getattr(matched_item, "critical_hit_probability", None)
+        item_crit_bonus = getattr(matched_item, "critical_hit_bonus", None)
+        item_effects = getattr(matched_item, "effects", None)
+        parent_set = getattr(matched_item, "parent_set", None)
+        parent_set_name = (
+            getattr(parent_set, "name", None) if parent_set else None
+        )
 
         image_url = None
-        if getattr(matched_item, 'image_urls', None):
-            image_url = getattr(matched_item.image_urls, 'sd', None)
+        if getattr(matched_item, "image_urls", None):
+            image_url = getattr(matched_item.image_urls, "sd", None)
 
         # ---- PAGE 1 (Basic info except description) ----
         page1 = discord.Embed(title=item_name, color=discord.Color.blurple())
 
         if item_type_name:
-            page1.add_field(name=_("key_words.type"), value=item_type_name, inline=True)
+            page1.add_field(
+                name=_("key_words.type"), value=item_type_name, inline=True
+            )
 
         if item_level is not None:
-            page1.add_field(name=_("key_words.level"), value=str(item_level), inline=True)
+            page1.add_field(
+                name=_("key_words.level"), value=str(item_level), inline=True
+            )
 
         if item_effects:
             eff_lines = []
             for eff in item_effects:
-                eff_name = getattr(getattr(eff, 'type', None), 'name', '').capitalize()
-                eff_formatted = getattr(eff, 'formatted', '')
+                eff_name = getattr(
+                    getattr(eff, "type", None), "name", ""
+                ).capitalize()
+                eff_formatted = getattr(eff, "formatted", "")
                 if eff_name and eff_formatted:
                     eff_lines.append(f"- **{eff_name}**: {eff_formatted}")
             if eff_lines:
-                page1.add_field(name=_("key_words.effects"), value="\n".join(eff_lines), inline=False)
+                page1.add_field(
+                    name=_("key_words.effects"),
+                    value="\n".join(eff_lines),
+                    inline=False,
+                )
 
         # Stats
         stats_lines = []
@@ -551,14 +680,18 @@ class Dofusearch(commands.Cog):
         if item_max_cast is not None:
             stats_lines.append(f"**{_('key_words.turn')}**: {item_max_cast}")
         if item_crit_prob is not None:
-            stats_lines.append(f"**{_('key_words.crit_prob')}**: {item_crit_prob}%")
+            stats_lines.append(
+                f"**{_('key_words.crit_prob')}**: {item_crit_prob}%"
+            )
         if item_crit_bonus is not None:
-            stats_lines.append(f"**{_('key_words.crit_bonus')}**: {item_crit_bonus}")
+            stats_lines.append(
+                f"**{_('key_words.crit_bonus')}**: {item_crit_bonus}"
+            )
         if stats_lines:
             page1.add_field(
                 name=_("key_words.additional_stats"),
                 value="\n".join(stats_lines),
-                inline=False
+                inline=False,
             )
 
         # Set
@@ -568,7 +701,7 @@ class Dofusearch(commands.Cog):
         # Image
         if image_url:
             page1.set_image(url=image_url)
-                    
+
         # Build pages
         pages = []
 
@@ -581,7 +714,7 @@ class Dofusearch(commands.Cog):
             page2 = discord.Embed(
                 title=item_name,
                 color=discord.Color.blurple(),
-                description=item_description
+                description=item_description,
             )
             if image_url:
                 page2.set_image(url=image_url)
@@ -608,9 +741,7 @@ class Dofusearch(commands.Cog):
         while True:
             try:
                 reaction, user = await self.bot.wait_for(
-                    "reaction_add",
-                    timeout=60.0,
-                    check=check
+                    "reaction_add", timeout=60.0, check=check
                 )
                 # Try removing their reaction if possible
                 try:
@@ -632,8 +763,8 @@ class Dofusearch(commands.Cog):
                 except discord.Forbidden:
                     pass
                 break
-        
-        
+
+
 # Setup function to add the cog
 def setup(bot):
     bot.add_cog(Dofusearch(bot))
