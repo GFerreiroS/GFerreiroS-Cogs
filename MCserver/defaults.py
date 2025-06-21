@@ -94,7 +94,7 @@ SERVER_NAME="{server_name}"
 
 while true; do
 # if the server isn’t running, restart it
-if ! pgrep -f "$JAR_FILE nogui" >/dev/null; then
+if ! screen -S "$SERVER_NAME" -Q select . >/dev/null 2>&1; then
     echo "$(date): server down, restarting…" >> monitor.log
 
     # validate memory syntax

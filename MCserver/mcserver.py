@@ -552,14 +552,33 @@ pkill -f "run-minecraft.sh" || true
     @commands.command(name="listservers")
     @commands.admin()
     async def listservers(self, ctx: commands.Context):
-        """List all existing Minecraft servers."""
+        """List all existing Minecraft servers and whether their screen session is up."""
         base = pathlib.Path(os.path.expanduser("~")) / "minecraft-bot"
         if not base.exists():
             return await ctx.send("No servers found.")
-        servers = [p.name for p in base.iterdir() if p.is_dir()]
+
+        servers = sorted(p.name for p in base.iterdir() if p.is_dir())
         if not servers:
             return await ctx.send("No servers found.")
-        await ctx.send("Available servers:\n" + "\n".join(f"- {s}" for s in servers))
+
+        lines = []
+        for name in servers:
+            # Ask screen if a session called exactly `name` exists
+            try:
+                # -Q select . will return 0 if the session is running
+                subprocess.check_call(
+                    ["screen", "-S", name, "-Q", "select", "."],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except subprocess.CalledProcessError:
+                status = "🔴 stopped"
+            else:
+                status = "🟢 running"
+            lines.append(f"- **{name}**: {status}")
+
+        # 4) Send in one message
+        await ctx.send("Available servers and their status:\n" + "\n".join(lines))
 
     @commands.group(name="deleteserver", invoke_without_command=True)
     @commands.admin()
