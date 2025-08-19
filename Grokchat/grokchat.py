@@ -1,8 +1,10 @@
 import discord
+from openai import OpenAI
+
 from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
-from openai import OpenAI
+
 
 class Grokchat(commands.Cog):
     """Simple cog for chatting with Grok."""
@@ -72,7 +74,9 @@ class Grokchat(commands.Cog):
         if target_user:
             # Store the user's unique ID
             await self.config.bully_user.set(str(target_user.id))
-            await ctx.send(f"{target_user.name} has been set as the target for bullying.")
+            await ctx.send(
+                f"{target_user.name} has been set as the target for bullying."
+            )
         else:
             await ctx.send("User not found. Please provide a valid username or ID.")
 
@@ -122,7 +126,7 @@ class Grokchat(commands.Cog):
             # Show the typing indicator while waiting for the API response
             async with ctx.typing():
                 response = self.client.images.generate(
-                    model="grok-2-image",\
+                    model="grok-2-image",
                     prompt=f"{userText}",
                 )
             await ctx.send(response.data[0].url)
@@ -154,9 +158,12 @@ class Grokchat(commands.Cog):
                 # Show typing indicator
                 async with message.channel.typing():
                     completion = self.client.chat.completions.create(
-                        model="grok-3-latest",
+                        model="grok-4-latest",
                         messages=[
-                            {"role": "system", "content": f"{await self.config.bully_context()}"},
+                            {
+                                "role": "system",
+                                "content": f"{await self.config.bully_context()}",
+                            },
                             {"role": "user", "content": f"{message.content}"},
                         ],
                     )
@@ -172,6 +179,7 @@ class Grokchat(commands.Cog):
     async def cog_unload(self):
         self.bot.remove_listener(self.on_message, "on_message")
         pass
+
 
 async def setup(bot: Red):
     cog = Grokchat(bot)
