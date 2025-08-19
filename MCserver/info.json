@@ -1,0 +1,7 @@
+{
+    "author": ["GFerreiroS"],
+    "description": "Simple Minecraft server creator.",
+    "install_msg": "Thank you for installing MCserver!",
+    "short": "MCserver",
+    "tags": ["minecraft", "servers"]
+}

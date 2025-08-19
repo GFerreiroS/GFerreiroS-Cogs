@@ -1,8 +1,8 @@
 {
-    "author" : ["Lapaellita"],
+    "author" : ["GFerreiroS"],
     "install_msg" : "Thanks to add this repo!.",
-    "name" : "Dofus-cogs.",
-    "short" : "Dofus cogs.",
-    "description" : "A set of cogs to get info about Dofus.",
-    "tags" : ["Dofus"]
+    "name" : "GFerreiroS-cogs",
+    "short" : "GFerreiroS cogs",
+    "description" : "A collection of cogs made in my free time.",
+    "tags" : ["Dofus", "Minecraft", "Chat AI", "Fun"]
 }
