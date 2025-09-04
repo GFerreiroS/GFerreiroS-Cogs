@@ -11,25 +11,25 @@ EMOJI_MENTION_RE = re.compile(r"^<a?:(?P<name>[^:]+):(?P<id>\d+)>$")
 
 
 class Eventoguilds(commands.Cog):
-    """Asignación de roles por reacción (un único rol por usuario, bloqueo permanente)."""
+    """Roles por reacción con elección única PER CANAL y bloqueo permanente por canal."""
 
     __author__ = "GFerreiroS"
-    __version__ = "1.2.0"
+    __version__ = "1.3.1"
 
     def __init__(self, bot: Red):
         self.bot = bot
         self.config = Config.get_conf(
             self, identifier=1234567890, force_registration=True
         )
-        # watchers: { message_id(str): {...} }
-        # chosen_users: { user_id(str): {role_id:int, message_id:int, timestamp:int} }
-        self.config.register_guild(watchers={}, chosen_users={})
+        # watchers: { message_id(str): {channel_id, role_id, emoji_*, created_*} }
+        # chosen_by_channel: { channel_id(str): { user_id(str): {role_id, message_id, timestamp} } }
+        # chosen_users: compat con versiones <= 1.2.x (registro global antiguo, ahora no se usa)
+        self.config.register_guild(watchers={}, chosen_by_channel={}, chosen_users={})
 
     # ---------- Helpers ----------
 
     def _parse_emoji_input(self, guild: discord.Guild, raw: str) -> Dict[str, Any]:
         raw = raw.strip()
-
         m = EMOJI_MENTION_RE.match(raw)
         if m:
             name = m.group("name")
@@ -74,7 +74,7 @@ class Eventoguilds(commands.Cog):
                 "animated": eobj.animated,
             }
 
-        # Emoji Unicode
+        # Unicode
         return {
             "type": "unicode",
             "id": None,
@@ -106,19 +106,15 @@ class Eventoguilds(commands.Cog):
 
     # ---------- Commands ----------
 
-    @commands.command(name="eventorol")
+    @commands.command(name="eventorol")  # type: ignore
     @checks.admin_or_permissions(manage_guild=True)
     @commands.guild_only()
     async def eventorol_create(
         self, ctx: commands.Context, role: discord.Role, emoji: str, *, mensaje: str
     ):
         """
-        Crea un mensaje de reacción que asigna `role` cuando se reacciona con `emoji`.
-
-        Uso:
-          !eventorol @Rol <:nombre:id> Dale a la reacción para asignarte este rol
-          !eventorol 1407416963696955392 :helheim: Dale a la reacción...
-          !eventorol @Rol 👍 Texto...
+        Crea un mensaje de reacción que asigna `role` al reaccionar con `emoji`.
+        Borra el mensaje del comando; solo queda el mensaje objetivo.
         """
         guild = ctx.guild
         assert guild is not None
@@ -126,10 +122,9 @@ class Eventoguilds(commands.Cog):
         me: discord.Member = guild.me  # type: ignore
         # Permisos necesarios
         if not me.guild_permissions.manage_roles:
-            # Sin mensaje en canal; avisa por DM
             try:
                 await ctx.author.send(
-                    "No puedo asignar roles: me falta el permiso **Gestionar roles** en ese servidor."
+                    "No puedo asignar roles: me falta **Gestionar roles** en ese servidor."
                 )
             except Exception:
                 pass
@@ -148,14 +143,13 @@ class Eventoguilds(commands.Cog):
         try:
             em = self._parse_emoji_input(guild, emoji)
         except commands.BadArgument as e:
-            # Avisa por DM; no dejes mensajes en el canal
             try:
                 await ctx.author.send(f"Emoji inválido: {e}")
             except Exception:
                 pass
             return
 
-        # Unicidad de rol
+        # Unicidad global de rol (evita duplicados del mismo rol en varios mensajes)
         async with self.config.guild(guild).watchers() as watchers:
             if any(int(w["role_id"]) == role.id for w in watchers.values()):
                 try:
@@ -166,25 +160,23 @@ class Eventoguilds(commands.Cog):
                     pass
                 return
 
-            # Publica el mensaje "limpio" y añade la reacción
+            # Publica mensaje objetivo
             msg = await ctx.send(mensaje)
             try:
                 await msg.add_reaction(self._reaction_token_for_add(guild, em))
             except discord.HTTPException:
-                # Si falla, borra el mensaje recién creado y avisa por DM
                 try:
                     await msg.delete()
                 except Exception:
                     pass
                 try:
                     await ctx.author.send(
-                        "No pude añadir la reacción (¿emoji no disponible/permiso insuficiente?)."
+                        "No pude añadir la reacción (emoji no disponible/permisos)."
                     )
                 except Exception:
                     pass
                 return
 
-            # Guarda el watcher SOLO si todo salió bien
             watchers[str(msg.id)] = {
                 "channel_id": msg.channel.id,
                 "role_id": role.id,
@@ -196,12 +188,10 @@ class Eventoguilds(commands.Cog):
                 "created_at": int(time.time()),
             }
 
-        # Borra el mensaje del comando para que solo quede el mensaje objetivo
+        # Borra el mensaje del comando
         try:
             await ctx.message.delete()
         except discord.Forbidden:
-            # Falta "Gestionar mensajes": no podemos borrar el mensaje del usuario.
-            # No escribimos nada en el canal; como fallback, avisa por DM.
             try:
                 await ctx.author.send(
                     "Creado el mensaje de reacción, pero no pude borrar tu comando (me falta **Gestionar mensajes**)."
@@ -211,19 +201,16 @@ class Eventoguilds(commands.Cog):
         except Exception:
             pass
 
-        # No enviamos confirmación en el canal.
-        return
-
-    @commands.group(name="eventorolcfg", invoke_without_command=True)
+    @commands.group(name="eventorolcfg", invoke_without_command=True)  # type: ignore
     @checks.admin_or_permissions(manage_guild=True)
     @commands.guild_only()
     async def eventorolcfg(self, ctx: commands.Context):
-        """Comandos de administración: listar / eliminar / desbloquear / forzar / bloqueados."""
+        """Admin: listar / eliminar / desbloquear / forzar / bloqueados / limpiar global antiguo."""
         await ctx.send_help(ctx.command)
 
-    @eventorolcfg.command(name="list")
+    @eventorolcfg.command(name="list")  # type: ignore
     async def eventorol_list(self, ctx: commands.Context):
-        """Lista los mensajes configurados en este servidor."""
+        """Lista mensajes configurados en este servidor."""
         watchers = await self._get_guild_watchers(ctx.guild)  # type: ignore
         if not watchers:
             return await ctx.send("No hay mensajes configurados.")
@@ -236,15 +223,21 @@ class Eventoguilds(commands.Cog):
                 e_disp = f"<{prefix}:{w.get('emoji_name', 'emoji')}:{w['emoji_id']}>"
             else:
                 e_disp = w.get("emoji_unicode", "❓")
+            chan = ctx.guild.get_channel(int(w["channel_id"]))  # type: ignore
+            ch_disp = (
+                f"en #{chan.name}"
+                if isinstance(chan, discord.TextChannel)
+                else f"(canal {w['channel_id']})"
+            )
             r_disp = role.mention if role else f"(rol {w['role_id']})"
-            lines.append(f"- **{mid}** {e_disp} → {r_disp} — [ir al mensaje]({url})")
+            lines.append(f"- **{mid}** {e_disp} → {r_disp} — {ch_disp} — [ir]({url})")
         msg = "\n".join(lines)
         for chunk in [msg[i : i + 1900] for i in range(0, len(msg), 1900)]:
             await ctx.send(chunk)
 
-    @eventorolcfg.command(name="remove")
+    @eventorolcfg.command(name="remove")  # type: ignore
     async def eventorol_remove(self, ctx: commands.Context, message_id_or_link: str):
-        """Elimina la vinculación de un mensaje (no borra el mensaje de Discord)."""
+        """Elimina la vinculación de un mensaje (no borra el mensaje)."""
         if "/" in message_id_or_link:
             mid = message_id_or_link.rstrip("/").split("/")[-1]
         else:
@@ -261,35 +254,56 @@ class Eventoguilds(commands.Cog):
             watchers.pop(mid)
         await ctx.send(f"Vinculación eliminada para el mensaje `{mid}`.")
 
-    @eventorolcfg.command(name="unlock")
+    @eventorolcfg.command(name="unlock")  # type: ignore
     @checks.admin_or_permissions(manage_guild=True)
-    async def eventorol_unlock(self, ctx: commands.Context, member: discord.Member):
-        """Desbloquea a un usuario para que pueda elegir de nuevo (no modifica roles)."""
-        async with self.config.guild(ctx.guild).chosen_users() as chosen:  # type: ignore
-            if str(member.id) in chosen:
-                chosen.pop(str(member.id))
-                await ctx.send(f"🔓 {member.mention} ha sido **desbloqueado**.")
-            else:
-                await ctx.send("Ese usuario no estaba bloqueado.")
+    async def eventorol_unlock(
+        self,
+        ctx: commands.Context,
+        member: discord.Member,
+        channel: Optional[discord.TextChannel] = None,
+    ):
+        """Desbloquea a un usuario **en un canal** (no cambia roles).
+        Si no indicas canal, usa el canal actual.
+        """
+        guild = ctx.guild
+        assert guild is not None
+        channel = channel or ctx.channel  # type: ignore
+        if not isinstance(channel, discord.TextChannel):
+            return await ctx.send("Debes indicar un canal de texto.")
 
-    @eventorolcfg.command(name="force")
+        async with self.config.guild(guild).chosen_by_channel() as cb:
+            ch = cb.get(str(channel.id), {})
+            if str(member.id) in ch:
+                ch.pop(str(member.id))
+                await ctx.send(
+                    f"🔓 {member.mention} desbloqueado en {channel.mention}."
+                )
+            else:
+                await ctx.send(f"Ese usuario no estaba bloqueado en {channel.mention}.")
+
+    @eventorolcfg.command(name="force")  # type: ignore
     @checks.admin_or_permissions(manage_guild=True, manage_roles=True)
     async def eventorol_force(
         self, ctx: commands.Context, member: discord.Member, role: discord.Role
     ):
-        """
-        Fuerza asignar un rol gestionado por estos mensajes y deja al usuario bloqueado.
-        """
+        """Asigna `role` si está gestionado por un watcher y bloquea al usuario **en el canal de ese watcher**."""
         guild = ctx.guild
         assert guild is not None
 
         watchers = await self._get_guild_watchers(guild)
-        watcher_role_ids = {int(x["role_id"]) for x in watchers.values()}
-        if role.id not in watcher_role_ids:
+        # Busca el watcher de ese rol (unicidad global de rol)
+        target = None
+        for w in watchers.values():
+            if int(w["role_id"]) == role.id:
+                target = w
+                break
+        if not target:
             return await ctx.send(
                 "Ese rol **no** está gestionado por los mensajes de `!eventorol`."
             )
 
+        channel_id = int(target["channel_id"])
+        channel = guild.get_channel(channel_id)
         me: Optional[discord.Member] = guild.me  # type: ignore
         if not me or not me.guild_permissions.manage_roles or role >= me.top_role:
             return await ctx.send("No tengo permisos o jerarquía para asignar ese rol.")
@@ -297,33 +311,46 @@ class Eventoguilds(commands.Cog):
         try:
             await member.add_roles(role, reason="Eventoguilds: force assign")
         except discord.Forbidden:
-            return await ctx.send("No puedo asignar ese rol (permissions).")
+            return await ctx.send("No puedo asignar ese rol (permisos).")
         except discord.HTTPException:
             return await ctx.send("Fallo de API al asignar el rol.")
 
-        # Bloquear
-        async with self.config.guild(guild).chosen_users() as chosen:
-            chosen[str(member.id)] = {
+        async with self.config.guild(guild).chosen_by_channel() as cb:
+            ch = cb.setdefault(str(channel_id), {})
+            ch[str(member.id)] = {
                 "role_id": role.id,
-                "message_id": 0,  # 0 = manual/forzado
+                "message_id": 0,  # 0 = forzado
                 "timestamp": int(time.time()),
             }
 
+        ch_disp = (
+            channel.mention
+            if isinstance(channel, discord.TextChannel)
+            else f"(canal {channel_id})"
+        )
         await ctx.send(
-            f"✅ {member.mention} recibió {role.mention} y queda **bloqueado**."
+            f"✅ {member.mention} recibió {role.mention} y queda **bloqueado** en {ch_disp}."
         )
 
-    @eventorolcfg.command(name="locked")
-    @checks.admin_or_permissions(manage_guild=True)
-    async def eventorol_locked(self, ctx: commands.Context):
-        """Lista de usuarios bloqueados (han elegido ya un rol)."""
-        chosen = await self.config.guild(ctx.guild).chosen_users()  # type: ignore
-        if not chosen:
-            return await ctx.send("No hay usuarios bloqueados.")
+    @eventorolcfg.command(name="locked")  # type: ignore
+    async def eventorol_locked(
+        self, ctx: commands.Context, channel: Optional[discord.TextChannel] = None
+    ):
+        """Lista bloqueados **en un canal** (si no indicas, canal actual)."""
+        guild = ctx.guild
+        assert guild is not None
+        channel = channel or ctx.channel  # type: ignore
+        if not isinstance(channel, discord.TextChannel):
+            return await ctx.send("Debes indicar un canal de texto.")
+
+        cb = await self.config.guild(guild).chosen_by_channel()
+        ch = cb.get(str(channel.id), {})
+        if not ch:
+            return await ctx.send(f"No hay usuarios bloqueados en {channel.mention}.")
         lines = []
-        for uid, info in chosen.items():
-            member = ctx.guild.get_member(int(uid))  # type: ignore
-            role = ctx.guild.get_role(int(info.get("role_id", 0)))  # type: ignore
+        for uid, info in ch.items():
+            member = guild.get_member(int(uid))
+            role = guild.get_role(int(info.get("role_id", 0)))
             who = member.mention if member else f"`{uid}`"
             rdisp = role.mention if role else f"(rol {info.get('role_id')})"
             ts = info.get("timestamp")
@@ -332,6 +359,47 @@ class Eventoguilds(commands.Cog):
         msg = "\n".join(lines)
         for chunk in [msg[i : i + 1900] for i in range(0, len(msg), 1900)]:
             await ctx.send(chunk)
+
+    @eventorolcfg.command(name="lockedall")  # type: ignore
+    async def eventorol_locked_all(self, ctx: commands.Context):
+        """Lista todos los bloqueados agrupados por canal."""
+        guild = ctx.guild
+        assert guild is not None
+        cb = await self.config.guild(guild).chosen_by_channel()
+        if not cb:
+            return await ctx.send("No hay usuarios bloqueados en ningún canal.")
+        pieces = []
+        for ch_id, users in cb.items():
+            chan = guild.get_channel(int(ch_id))
+            header = (
+                chan.mention
+                if isinstance(chan, discord.TextChannel)
+                else f"(canal {ch_id})"
+            )
+            if not users:
+                continue
+            lines = []
+            for uid, info in users.items():
+                member = guild.get_member(int(uid))
+                role = guild.get_role(int(info.get("role_id", 0)))
+                who = member.mention if member else f"`{uid}`"
+                rdisp = role.mention if role else f"(rol {info.get('role_id')})"
+                ts = info.get("timestamp")
+                when = f"<t:{ts}:R>" if ts else ""
+                lines.append(f"- {who} → {rdisp} {when}")
+            pieces.append(f"**{header}**\n" + "\n".join(lines))
+        text = "\n\n".join(pieces)
+        for chunk in [text[i : i + 1900] for i in range(0, len(text), 1900)]:
+            await ctx.send(chunk)
+
+    @eventorolcfg.command(name="clearglobal")  # type: ignore
+    async def eventorol_clear_global(self, ctx: commands.Context):
+        """Elimina el registro antiguo **global** de bloqueos (v1.2.x). No afecta a los bloqueos por canal."""
+        # Como registramos chosen_users = {}, .clear() lo deja vacío (compat)
+        await self.config.guild(ctx.guild).chosen_users.clear()  # type: ignore
+        await ctx.send(
+            "🧹 Registro global antiguo `chosen_users` eliminado. Los bloqueos por canal permanecen."
+        )
 
     # ---------- Listeners ----------
 
@@ -349,7 +417,7 @@ class Eventoguilds(commands.Cog):
         if not w:
             return
 
-        # Coincide emoji?
+        # Emoji correcto para ese watcher
         if not self._emoji_matches_payload(
             {
                 "type": "unicode" if w["emoji_id"] is None else "custom",
@@ -372,29 +440,36 @@ class Eventoguilds(commands.Cog):
         if member.bot:
             return
 
-        # ¿Ya bloqueado para siempre?
-        chosen = await self.config.guild(guild).chosen_users()
-        if str(member.id) in chosen:
-            return  # Ignora nuevas elecciones para siempre
-
         role = guild.get_role(int(w["role_id"]))
         if role is None:
             return
 
-        # ¿Ya tiene algún rol de watchers? (refuerzo)
-        watcher_role_ids = {int(x["role_id"]) for x in watchers.values()}
-        if any(r.id in watcher_role_ids for r in member.roles):
-            # No asigna otro, pero además bloqueamos si no estaba (por coherencia)
-            async with self.config.guild(guild).chosen_users() as chosen_edit:
-                if str(member.id) not in chosen_edit:
-                    chosen_edit[str(member.id)] = {
-                        "role_id": next(
-                            (r.id for r in member.roles if r.id in watcher_role_ids),
-                            role.id,
-                        ),
-                        "message_id": payload.message_id,
-                        "timestamp": int(time.time()),
-                    }
+        channel_id = int(w["channel_id"])
+
+        # ¿Ya bloqueado en ESTE canal?
+        cb = await self.config.guild(guild).chosen_by_channel()
+        chlocks = cb.get(str(channel_id), {})
+        if str(member.id) in chlocks:
+            return  # ya eligió en este canal
+
+        # ¿Ya tiene algún rol de watchers en ESTE canal?
+        watcher_role_ids_in_channel = {
+            int(x["role_id"])
+            for x in watchers.values()
+            if int(x["channel_id"]) == channel_id
+        }
+        existing_in_channel = next(
+            (r.id for r in member.roles if r.id in watcher_role_ids_in_channel), None
+        )
+        if existing_in_channel is not None:
+            # Solo bloquear (coherencia)
+            async with self.config.guild(guild).chosen_by_channel() as cb_edit:
+                ch = cb_edit.setdefault(str(channel_id), {})
+                ch[str(member.id)] = {
+                    "role_id": existing_in_channel,
+                    "message_id": payload.message_id,
+                    "timestamp": int(time.time()),
+                }
             return
 
         # Permisos
@@ -402,7 +477,7 @@ class Eventoguilds(commands.Cog):
         if not me or not me.guild_permissions.manage_roles or role >= me.top_role:
             return
 
-        # Asignar y bloquear
+        # Asignar y BLOQUEAR EN ESTE CANAL
         try:
             await member.add_roles(
                 role, reason=f"Eventoguilds: reacción en {payload.message_id}"
@@ -410,14 +485,15 @@ class Eventoguilds(commands.Cog):
         except (discord.Forbidden, discord.HTTPException):
             return
 
-        async with self.config.guild(guild).chosen_users() as chosen_edit:
-            chosen_edit[str(member.id)] = {
+        async with self.config.guild(guild).chosen_by_channel() as cb_edit:
+            ch = cb_edit.setdefault(str(channel_id), {})
+            ch[str(member.id)] = {
                 "role_id": role.id,
                 "message_id": payload.message_id,
                 "timestamp": int(time.time()),
             }
 
-    # No quitamos el rol al retirar la reacción
+    # No quitamos rol al retirar reacción
     @commands.Cog.listener("on_raw_reaction_remove")
     async def _on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent):
         return
@@ -425,6 +501,3 @@ class Eventoguilds(commands.Cog):
     def format_help_for_context(self, ctx: commands.Context) -> str:
         pre = super().format_help_for_context(ctx)
         return f"{pre}\n\nAutor: {self.__author__}\nVersión: {self.__version__}"
-
-    async def cog_unload(self):
-        pass
