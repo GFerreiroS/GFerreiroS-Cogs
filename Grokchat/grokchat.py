@@ -1,10 +1,10 @@
-import discord
 import base64
 import json
-import aiohttp
 from io import BytesIO
-from openai import OpenAI
 
+import aiohttp
+import discord
+from openai import OpenAI
 from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
@@ -18,7 +18,7 @@ class Grokchat(commands.Cog):
     def __init__(self, bot: Red):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=29384703)
-        self.default_guild = {"api_key": ""}
+        self.default_guild = {"api_key": "", "api_venice": ""}
         self.config.register_guild(**self.default_guild)
         self.setcontext = {
             "You are mean to anybody to talks to you."
@@ -38,13 +38,12 @@ class Grokchat(commands.Cog):
                 api_key=api_key,
                 base_url="https://api.x.ai/v1",
             )
-    
+
     async def initialize_venice(self):
-        api_venice = "VENICE-INFERENCE-KEY-PFPmAVBLT8xdhwBc_fvqofb13GJANX-tHr2m-Y0XbI"
+        api_venice = await self.config.api_venice()
         self.api_venice = api_venice
         self.client = OpenAI(
-            api_key=api_venice,
-            base_url="https://api.venice.ai/api/v1"
+            api_key=api_venice, base_url="https://api.venice.ai/api/v1"
         )
 
     @commands.guildowner()
@@ -144,25 +143,25 @@ class Grokchat(commands.Cog):
             await ctx.send(response.data[0].url)
         except Exception as e:
             await ctx.send(f"An error occurred: {e}")
-            
+
     @commands.command()
     async def veniceimage(self, ctx, *, userText: str):
         """Generate image via Venice /image/generate and send it to Discord (no disk image)."""
         if not self.client:
             await self.initialize_venice()
-    
+
         if not self.client:
             await ctx.send("API key is not set. Use `!setapikey` to set it.")
             return
-    
+
         api_venice = getattr(self, "api_venice", None) or "key"
-    
+
         url = "https://api.venice.ai/api/v1/image/generate"
         headers = {
             "Authorization": f"Bearer {api_venice}",
             "Content-Type": "application/json",
         }
-    
+
         payload = {
             "model": "lustify-v7",
             "prompt": userText,
@@ -171,35 +170,37 @@ class Grokchat(commands.Cog):
             "format": "png",
             "safe_mode": False,
         }
-    
+
         try:
             async with ctx.typing():
                 async with aiohttp.ClientSession() as session:
                     async with session.post(url, json=payload, headers=headers) as r:
                         if r.status >= 400:
                             err_text = await r.text()
-                            await ctx.send(f"Venice error {r.status}: {err_text[:1500]}")
+                            await ctx.send(
+                                f"Venice error {r.status}: {err_text[:1500]}"
+                            )
                             return
-    
+
                         j = await r.json()
-    
+
             # 🔹 Guardar JSON
             with open("/home/odroid/cogs/response.json", "w") as f:
                 json.dump(j, f, indent=4)
-    
+
             # 🔹 NUEVO FORMATO → images[0]
             if "images" in j and len(j["images"]) > 0:
                 image_base64 = j["images"][0]
-    
+
                 image_bytes = base64.b64decode(image_base64)
                 image_file = BytesIO(image_bytes)
                 image_file.seek(0)
-    
+
                 await ctx.send(file=discord.File(image_file, filename="image.png"))
                 return
-    
+
             await ctx.send("No recibí imagen en la respuesta. Revisa response.json")
-    
+
         except Exception as e:
             await ctx.send(f"An error occurred: {e}")
 
