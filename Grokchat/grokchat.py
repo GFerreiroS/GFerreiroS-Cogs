@@ -1,4 +1,8 @@
 import discord
+import base64
+import json
+import aiohttp
+from io import BytesIO
 from openai import OpenAI
 
 from redbot.core import commands
@@ -34,6 +38,14 @@ class Grokchat(commands.Cog):
                 api_key=api_key,
                 base_url="https://api.x.ai/v1",
             )
+    
+    async def initialize_venice(self):
+        api_venice = "VENICE-INFERENCE-KEY-PFPmAVBLT8xdhwBc_fvqofb13GJANX-tHr2m-Y0XbI"
+        self.api_venice = api_venice
+        self.client = OpenAI(
+            api_key=api_venice,
+            base_url="https://api.venice.ai/api/v1"
+        )
 
     @commands.guildowner()
     @commands.command()
@@ -102,7 +114,7 @@ class Grokchat(commands.Cog):
             # Show the typing indicator while waiting for the API response
             async with ctx.typing():
                 completion = self.client.chat.completions.create(
-                    model="grok-2-latest",
+                    model="grok-4-1-fast-non-reasoning",
                     messages=[
                         {"role": "system", "content": f"{current_context}"},
                         {"role": "user", "content": f"{userText}"},
@@ -126,10 +138,68 @@ class Grokchat(commands.Cog):
             # Show the typing indicator while waiting for the API response
             async with ctx.typing():
                 response = self.client.images.generate(
-                    model="grok-2-image",
+                    model="grok-imagine-image-pro",
                     prompt=f"{userText}",
                 )
             await ctx.send(response.data[0].url)
+        except Exception as e:
+            await ctx.send(f"An error occurred: {e}")
+            
+    @commands.command()
+    async def veniceimage(self, ctx, *, userText: str):
+        """Generate image via Venice /image/generate and send it to Discord (no disk image)."""
+        if not self.client:
+            await self.initialize_venice()
+    
+        if not self.client:
+            await ctx.send("API key is not set. Use `!setapikey` to set it.")
+            return
+    
+        api_venice = getattr(self, "api_venice", None) or "key"
+    
+        url = "https://api.venice.ai/api/v1/image/generate"
+        headers = {
+            "Authorization": f"Bearer {api_venice}",
+            "Content-Type": "application/json",
+        }
+    
+        payload = {
+            "model": "lustify-v7",
+            "prompt": userText,
+            "width": 1024,
+            "height": 1024,
+            "format": "png",
+            "safe_mode": False,
+        }
+    
+        try:
+            async with ctx.typing():
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, json=payload, headers=headers) as r:
+                        if r.status >= 400:
+                            err_text = await r.text()
+                            await ctx.send(f"Venice error {r.status}: {err_text[:1500]}")
+                            return
+    
+                        j = await r.json()
+    
+            # 🔹 Guardar JSON
+            with open("/home/odroid/cogs/response.json", "w") as f:
+                json.dump(j, f, indent=4)
+    
+            # 🔹 NUEVO FORMATO → images[0]
+            if "images" in j and len(j["images"]) > 0:
+                image_base64 = j["images"][0]
+    
+                image_bytes = base64.b64decode(image_base64)
+                image_file = BytesIO(image_bytes)
+                image_file.seek(0)
+    
+                await ctx.send(file=discord.File(image_file, filename="image.png"))
+                return
+    
+            await ctx.send("No recibí imagen en la respuesta. Revisa response.json")
+    
         except Exception as e:
             await ctx.send(f"An error occurred: {e}")
 
@@ -158,7 +228,7 @@ class Grokchat(commands.Cog):
                 # Show typing indicator
                 async with message.channel.typing():
                     completion = self.client.chat.completions.create(
-                        model="grok-4-latest",
+                        model="grok-4-1-fast-non-reasoning",
                         messages=[
                             {
                                 "role": "system",
