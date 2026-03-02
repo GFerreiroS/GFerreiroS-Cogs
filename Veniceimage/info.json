@@ -1,0 +1,7 @@
+{
+    "author": ["GFerreiroS"],
+    "description": "Simple cog for generating images with Venice.",
+    "install_msg": "Thank you for installing Veniceimage!",
+    "short": "Venice image",
+    "tags": ["Venice", "image", "funny"]
+}
