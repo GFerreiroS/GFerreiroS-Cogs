@@ -23,10 +23,15 @@ class Veniceimage(commands.Cog):
         self.config.register_guild(**self.default_guild)
         self.client = None
         self.image_models = []
-        self.current_model = "lustify-v7"
+        self.current_model = "chroma"
 
-    async def initialize_venice(self):
-        api_venice = await self.config.api_venice()
+    async def initialize_venice(self, guild: discord.Guild):
+        api_venice = await self.config.guild(guild).api_key()
+        if not api_venice:
+            self.client = None
+            self.image_models = []
+            return False
+
         self.api_venice = api_venice
         self.client = OpenAI(
             api_key=api_venice, base_url="https://api.venice.ai/api/v1"
@@ -42,23 +47,26 @@ class Veniceimage(commands.Cog):
                     data = await r.json()
                     self.image_models = [m["id"] for m in data.get("data", [])]
 
+        return True
+
     @commands.guildowner()
     @commands.command()
     async def veniceapikey(self, ctx, *, api_key: str):
         """Set the API key for the Venice client."""
-        await self.config.api_key.set(api_key)
-        await self.initialize_venice()
+        await self.config.guild(ctx.guild).api_key.set(api_key)
+        await self.initialize_venice(ctx.guild)
         await ctx.send("API key has been updated.")
 
     @commands.command()
     async def venicemodels(self, ctx):
         """List available Venice image generation models."""
-        if not self.config.api_key:
+        api_key = await self.config.guild(ctx.guild).api_key()
+        if not api_key:
             await ctx.send("API key is not set. Use `!veniceapikey` to set it.")
             return
 
         if not self.image_models:
-            await self.initialize_venice()
+            await self.initialize_venice(ctx.guild)
 
         if self.image_models:
             models_list = "\n".join(self.image_models)
@@ -69,12 +77,13 @@ class Veniceimage(commands.Cog):
     @commands.command()
     async def setvenicemodel(self, ctx, *, model_name: str):
         """Set the current Venice image generation model."""
-        if not self.config.api_key:
+        api_key = await self.config.guild(ctx.guild).api_key()
+        if not api_key:
             await ctx.send("API key is not set. Use `!veniceapikey` to set it.")
             return
 
         if not self.image_models:
-            await self.initialize_venice()
+            await self.initialize_venice(ctx.guild)
 
         if model_name in self.image_models:
             self.current_model = model_name
@@ -87,12 +96,16 @@ class Veniceimage(commands.Cog):
     @commands.command()
     async def veniceimage(self, ctx, *, userText: str):
         """Generate image via Venice."""
-        if not self.config.api_key:
+        api_key = await self.config.guild(ctx.guild).api_key()
+        if not api_key:
             await ctx.send("API key is not set. Use `!veniceapikey` to set it.")
             return
 
         if not self.client:
-            await self.initialize_venice()
+            initialized = await self.initialize_venice(ctx.guild)
+            if not initialized:
+                await ctx.send("API key is not set. Use `!veniceapikey` to set it.")
+                return
 
         if not self.client:
             await ctx.send("API key is not set. Use `!veniceapikey` to set it.")
@@ -109,14 +122,17 @@ class Veniceimage(commands.Cog):
         payload = {
             "model": self.current_model,
             "prompt": userText,
-            "width": 1024,
-            "height": 1024,
+            "width": 1280,
+            "height": 1280,
             "format": "png",
             "safe_mode": False,
             "hide_watermark": True,
-            "cfg_scale": 7.5,
+            "cfg_scale": 12,
             "steps": 50,
             "variants": 3,
+            "lora_strength": 100,
+            "resolution": "4K",
+            "seed": 123,
         }
 
         try:
@@ -133,21 +149,106 @@ class Veniceimage(commands.Cog):
                         j = await r.json()
 
             # 🔹 Guardar JSON
-            with open("/home/odroid/cogs/response.json", "w") as f:
+            with open("response.json", "w") as f:
                 json.dump(j, f, indent=4)
 
-            # 🔹 NUEVO FORMATO → images[0]
             if "images" in j and len(j["images"]) > 0:
-                image_base64 = j["images"][0]
+                files = []
+                for index, image_base64 in enumerate(j["images"], start=1):
+                    image_bytes = base64.b64decode(image_base64)
+                    image_file = BytesIO(image_bytes)
+                    image_file.seek(0)
+                    files.append(
+                        discord.File(image_file, filename=f"image_{index}.png")
+                    )
 
-                image_bytes = base64.b64decode(image_base64)
-                image_file = BytesIO(image_bytes)
-                image_file.seek(0)
-
-                await ctx.send(file=discord.File(image_file, filename="image.png"))
+                await ctx.send(files=files)
                 return
 
             await ctx.send("No recibí imagen en la respuesta. Revisa response.json")
+
+        except Exception as e:
+            await ctx.send(f"An error occurred: {e}")
+
+    @commands.command()
+    async def venicemultiplemodels(self, ctx, *, userText: str):
+        """Generate images using multiple Venice models."""
+        api_key = await self.config.guild(ctx.guild).api_key()
+        if not api_key:
+            await ctx.send("API key is not set. Use `!veniceapikey` to set it.")
+            return
+
+        if not self.client:
+            initialized = await self.initialize_venice(ctx.guild)
+            if not initialized:
+                await ctx.send("API key is not set. Use `!veniceapikey` to set it.")
+                return
+
+        if not self.client:
+            await ctx.send("API key is not set. Use `!veniceapikey` to set it.")
+            return
+
+        api_venice = getattr(self, "api_venice", None) or "key"
+        url = "https://api.venice.ai/api/v1/image/generate"
+        headers = {
+            "Authorization": f"Bearer {api_venice}",
+            "Content-Type": "application/json",
+        }
+
+        models_to_use = ["z-image-turbo", "chroma", "lustify-sdxl", "lustify-v7"]
+
+        try:
+            async with ctx.typing():
+                async with aiohttp.ClientSession() as session:
+                    for model_name in models_to_use:
+                        payload = {
+                            "model": model_name,
+                            "prompt": userText,
+                            "width": 1024,
+                            "height": 1024,
+                            "format": "png",
+                            "safe_mode": False,
+                            "hide_watermark": True,
+                            "cfg_scale": 7.5,
+                            "steps": 50,
+                            "variants": 3,
+                        }
+
+                        async with session.post(
+                            url, json=payload, headers=headers
+                        ) as response:
+                            if response.status >= 400:
+                                err_text = await response.text()
+                                await ctx.send(
+                                    f"Model `{model_name}` error {response.status}: {err_text[:1500]}"
+                                )
+                                continue
+
+                            response_json = await response.json()
+
+                        with open(f"response_{model_name}.json", "w") as f:
+                            json.dump(response_json, f, indent=4)
+
+                        images = response_json.get("images", [])
+                        if not images:
+                            await ctx.send(
+                                f"Model `{model_name}` returned no images. Check response_{model_name}.json"
+                            )
+                            continue
+
+                        files = []
+                        for index, image_base64 in enumerate(images, start=1):
+                            image_bytes = base64.b64decode(image_base64)
+                            image_file = BytesIO(image_bytes)
+                            image_file.seek(0)
+                            files.append(
+                                discord.File(
+                                    image_file,
+                                    filename=f"{model_name}_image_{index}.png",
+                                )
+                            )
+
+                        await ctx.send(content=f"Model: `{model_name}`", files=files)
 
         except Exception as e:
             await ctx.send(f"An error occurred: {e}")
